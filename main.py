@@ -11,6 +11,7 @@ from app.core.logging import logger
 from app.database import database
 from app.endpoints import health, items
 from app.endpoints import dashboards  # <-- añadido
+from app.endpoints import widgets  # <-- añadido
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -48,6 +49,7 @@ app.add_middleware(
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(items.router, prefix="/api/v1", tags=["items"])
 app.include_router(dashboards.router, prefix="/api/v1", tags=["dashboards"])  # <-- añadido
+app.include_router(widgets.router, prefix="/api/v1", tags=["widgets"])  # <-- añadido
 
 @app.get("/", tags=["root"])
 async def root():

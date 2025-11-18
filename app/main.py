@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from app.database.config import database
 from app.endpoints.health import router as health_router
 from app.endpoints.dashboards import router as dashboards_router
+from app.endpoints.widgets import router as widgets_router
 # Si arreglas items, descomenta:
 # from app.endpoints.items import router as items_router
 
@@ -20,4 +21,5 @@ async def shutdown():
 
 app.include_router(health_router)
 app.include_router(dashboards_router)
+app.include_router(widgets_router)
 # app.include_router(items_router)
