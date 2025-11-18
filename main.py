@@ -10,16 +10,10 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.database import database
 from app.endpoints import health, items
-
+from app.endpoints import dashboards  # <-- añadido
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Lifespan context manager for startup and shutdown events
-
-    Handles database connection lifecycle
-    """
-    # Startup
     logger.info(f"Starting {settings.APP_NAME} v{settings.APP_VERSION}")
     logger.info(f"Environment: {settings.ENVIRONMENT}")
     try:
@@ -28,16 +22,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Failed to start application: {str(e)}")
         raise
-
     yield
-
-    # Shutdown
     logger.info("Shutting down application")
     await database.disconnect()
     logger.info("Application shutdown complete")
 
-
-# Create FastAPI application
 app = FastAPI(
     title=settings.APP_NAME,
     description=settings.APP_DESCRIPTION,
@@ -48,7 +37,6 @@ app = FastAPI(
     debug=settings.DEBUG,
 )
 
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -57,14 +45,12 @@ app.add_middleware(
     allow_headers=settings.CORS_ALLOW_HEADERS,
 )
 
-# Include routers
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(items.router, prefix="/api/v1", tags=["items"])
-
+app.include_router(dashboards.router, prefix="/api/v1", tags=["dashboards"])  # <-- añadido
 
 @app.get("/", tags=["root"])
 async def root():
-    """Root endpoint"""
     return {
         "message": f"Welcome to {settings.APP_NAME}",
         "version": settings.APP_VERSION,
@@ -72,10 +58,8 @@ async def root():
         "health": "/api/v1/health"
     }
 
-
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(
         "main:app",
         host=settings.HOST,
