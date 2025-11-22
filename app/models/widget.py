@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, field_serializer
 from bson import ObjectId
 from bson.errors import InvalidId
 
@@ -20,8 +20,10 @@ class PyObjectId(ObjectId):
         return v
 
     @classmethod
-    def __modify_schema__(cls, field_schema):
-        field_schema.update(type="string")
+    def __get_pydantic_json_schema__(cls, core_schema, handler):
+        js = handler(core_schema)
+        js.update(type="string")
+        return js
 
 
 class Widget(BaseModel):
@@ -31,6 +33,8 @@ class Widget(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow, alias="createdAt")
     updated_at: Optional[datetime] = Field(default=None, alias="updatedAt")
 
-    class Config:
-        populate_by_name = True
-        json_encoders = {ObjectId: str}
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_serializer("id", when_used="json")
+    def serialize_id(self, v):
+        return str(v) if v is not None else None

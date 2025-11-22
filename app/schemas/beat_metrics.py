@@ -42,7 +42,7 @@ class BeatMetricsResponse(BaseModel):
     coreMetrics: CoreMetrics = Field(..., description="Core beat metrics.")
     extraMetrics: ExtraMetrics = Field(..., description="Additional beat metrics for extended analysis.")
     createdAt: datetime = Field(..., description="Timestamp when the record was created")
-    updatedAt: datetime = Field(..., description="Timestamp when the record was last updated")
+    updatedAt: Optional[datetime] = Field(None, description="Timestamp when the record was last updated")
 
     model_config = ConfigDict(
         from_attributes=True,
