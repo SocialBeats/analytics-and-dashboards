@@ -1,8 +1,8 @@
 """
 Services module - Business logic layer
 """
-from .item_service import ItemService
 from .dashboard_service import DashboardService
 from .widget_service import WidgetService
+from .beat_metrics_service import BeatMetricsService
 
-__all__ = ["ItemService", "DashboardService", "WidgetService"]
+__all__ = ["DashboardService", "WidgetService", "BeatMetricsService"]

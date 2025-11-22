@@ -1,9 +1,10 @@
-from .item import ItemCreate, ItemResponse, ItemUpdate
 from .dashboard import DashboardCreate, DashboardResponse, DashboardUpdate
 from .widget import WidgetCreate, WidgetResponse, WidgetUpdate
+from .beat_metrics import BeatMetricCreate, BeatMetricResponse, BeatMetricUpdate
 
 __all__ = [
-    "ItemCreate", "ItemResponse", "ItemUpdate",
     "DashboardCreate", "DashboardResponse", "DashboardUpdate",
-    "WidgetCreate", "WidgetResponse", "WidgetUpdate"
+    "WidgetCreate", "WidgetResponse", "WidgetUpdate",
+    "BeatMetricCreate", "BeatMetricResponse", "BeatMetricUpdate"
+
 ]

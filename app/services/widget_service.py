@@ -24,7 +24,6 @@ class WidgetService:
         """Create necessary indexes for the widgets collection"""
         try:
             await self.collection.create_index("dashboard_id")
-            await self.collection.create_index([("dashboard_id", 1), ("pos_y", 1), ("pos_x", 1)])
         except Exception as e:
             raise DatabaseException(f"Failed to create indexes: {str(e)}")
 
@@ -40,51 +39,13 @@ class WidgetService:
             initial_widgets = [
                 {
                     "dashboard_id": dashboard_id,
-                    "metric_type": "WEATHER_FORECAST",
-                    "pos_x": 1,
-                    "pos_y": 1,
-                    "width": 2,
-                    "height": 2,
+                    "metric_type": "BPM",
                     "created_at": datetime.utcnow(),
                     "updated_at": None
                 },
                 {
                     "dashboard_id": dashboard_id,
-                    "metric_type": "SALES_CHART",
-                    "pos_x": 3,
-                    "pos_y": 1,
-                    "width": 3,
-                    "height": 2,
-                    "created_at": datetime.utcnow(),
-                    "updated_at": None
-                },
-                {
-                    "dashboard_id": dashboard_id,
-                    "metric_type": "USER_STATS",
-                    "pos_x": 1,
-                    "pos_y": 3,
-                    "width": 5,
-                    "height": 1,
-                    "created_at": datetime.utcnow(),
-                    "updated_at": None
-                },
-                {
-                    "dashboard_id": dashboard_id,
-                    "metric_type": "REVENUE_GRAPH",
-                    "pos_x": 1,
-                    "pos_y": 4,
-                    "width": 3,
-                    "height": 2,
-                    "created_at": datetime.utcnow(),
-                    "updated_at": None
-                },
-                {
-                    "dashboard_id": dashboard_id,
-                    "metric_type": "ALERTS",
-                    "pos_x": 4,
-                    "pos_y": 4,
-                    "width": 2,
-                    "height": 2,
+                    "metric_type": "ENERGY",
                     "created_at": datetime.utcnow(),
                     "updated_at": None
                 }
@@ -113,22 +74,6 @@ class WidgetService:
         except InvalidId:
             raise BadRequestException(f"Invalid widget ID format: {widget_id}")
 
-    @staticmethod
-    def validate_grid_bounds(pos_x: int, width: int) -> None:
-        """
-        Validate that widget fits within the 5-column grid
-
-        Args:
-            pos_x: Starting column position
-            width: Number of columns occupied
-
-        Raises:
-            BadRequestException: If widget exceeds grid bounds
-        """
-        if pos_x + width - 1 > WidgetService.MAX_GRID_WIDTH:
-            raise BadRequestException(
-                f"Widget exceeds grid width. pos_x ({pos_x}) + width ({width}) - 1 must be <= {WidgetService.MAX_GRID_WIDTH}"
-            )
 
     @staticmethod
     def serialize_widget(widget: dict) -> dict:
@@ -145,19 +90,6 @@ class WidgetService:
             widget["id"] = str(widget.pop("_id"))
         return widget
 
-    @staticmethod
-    def calculate_sort_key(pos_y: int, pos_x: int) -> int:
-        """
-        Calculate sort key for widget ordering (row-major order)
-        
-        Args:
-            pos_y: Row position
-            pos_x: Column position
-            
-        Returns:
-            Sort key: (pos_y * 100) + pos_x
-        """
-        return (pos_y * 100) + pos_x
 
     async def get_all(self, dashboard_id: Optional[str] = None, skip: int = 0, limit: int = 100) -> List[dict]:
         """
@@ -177,8 +109,7 @@ class WidgetService:
             if dashboard_id:
                 query["dashboard_id"] = dashboard_id
 
-            # Sort by pos_y first (rows), then pos_x (columns)
-            cursor = self.collection.find(query).sort([("pos_y", 1), ("pos_x", 1)]).skip(skip).limit(limit)
+            cursor = self.collection.find(query).skip(skip).limit(limit)
             widgets = await cursor.to_list(length=limit)
             return [self.serialize_widget(widget) for widget in widgets]
         except Exception as e:
@@ -218,14 +149,8 @@ class WidgetService:
 
         Returns:
             Created widget document
-
-        Raises:
-            BadRequestException: If widget exceeds grid bounds
         """
         widget_dict = widget_data.model_dump(by_alias=False)
-        
-        # Validate grid bounds
-        self.validate_grid_bounds(widget_dict["pos_x"], widget_dict["width"])
 
         try:
             widget_dict["created_at"] = datetime.utcnow()
@@ -251,7 +176,6 @@ class WidgetService:
 
         Raises:
             NotFoundException: If widget not found
-            BadRequestException: If updated widget exceeds grid bounds
         """
         object_id = self.validate_object_id(widget_id)
 
@@ -266,11 +190,6 @@ class WidgetService:
 
             if not update_data:
                 return self.serialize_widget(existing_widget)
-
-            # Validate grid bounds if pos_x or width are being updated
-            new_pos_x = update_data.get("pos_x", existing_widget.get("pos_x"))
-            new_width = update_data.get("width", existing_widget.get("width"))
-            self.validate_grid_bounds(new_pos_x, new_width)
 
             update_data["updated_at"] = datetime.utcnow()
 
