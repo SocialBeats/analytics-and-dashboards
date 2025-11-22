@@ -115,6 +115,9 @@ uvicorn main:app --reload
 
 ```bash
 
+# Build proyect images
+docker build .
+
 # Start all services (API + MongoDB)
 docker-compose up
 
