@@ -16,6 +16,8 @@ services:
       - ENVIRONMENT=development
       - DEBUG=true
       - LOG_LEVEL=INFO
+      - TEMP_AUDIO_DIR=temp_audio
+      - MAX_UPLOAD_SIZE=104857600
     depends_on:
       mongodb:
         condition: service_healthy
@@ -26,6 +28,7 @@ services:
     volumes:
       - ./app:/app/app
       - ./main.py:/app/main.py
+      - audio_temp:/app/temp_audio
 
   # MongoDB Database
   mongodb:
@@ -76,4 +79,6 @@ volumes:
   mongodb_data:
     driver: local
   mongodb_config:
+    driver: local
+  audio_temp:
     driver: local
