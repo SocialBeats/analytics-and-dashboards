@@ -5,7 +5,7 @@ from app.database.config import get_db
 router = APIRouter()
 
 
-@router.get("/health")
+@router.get("/analytics/health")
 async def health_check(db: AsyncIOMotorDatabase = Depends(get_db)):
     """
     Health check endpoint

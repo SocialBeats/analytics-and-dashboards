@@ -132,22 +132,22 @@ docker-compose --profile dev up
 
 - **API Documentation (Swagger)**: http://localhost:3003/docs
 - **Alternative Documentation (ReDoc)**: http://localhost:3003/redoc
-- **Health Check**: http://localhost:3003/api/v1/health
+- **Health Check**: http://localhost:3003/api/v1/analytics/health
 - **Mongo Express** (if using dev profile): http://localhost:8081
 
 ## API Endpoints
 
 ### Health
 
-- `GET /api/v1/health` - Health check with database connectivity status
+- `GET /api/v1/analytics/health` - Health check with database connectivity status
 
 ### Items (CRUD Example)
 
-- `GET /api/v1/items` - List all items (with pagination)
-- `GET /api/v1/items/{item_id}` - Get specific item
-- `POST /api/v1/items` - Create new item
-- `PUT /api/v1/items/{item_id}` - Update existing item
-- `DELETE /api/v1/items/{item_id}` - Delete item
+- `GET /api/v1/analytics/items` - List all items (with pagination)
+- `GET /api/v1/analytics/items/{item_id}` - Get specific item
+- `POST /api/v1/analytics/items` - Create new item
+- `PUT /api/v1/analytics/items/{item_id}` - Update existing item
+- `DELETE /api/v1/analytics/items/{item_id}` - Delete item
 
 ## Development
 
