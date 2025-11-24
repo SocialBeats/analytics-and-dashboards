@@ -130,9 +130,9 @@ docker-compose --profile dev up
 
 ### 4. Access the API
 
-- **API Documentation (Swagger)**: http://localhost:8000/docs
-- **Alternative Documentation (ReDoc)**: http://localhost:8000/redoc
-- **Health Check**: http://localhost:8000/api/v1/health
+- **API Documentation (Swagger)**: http://localhost:3003/docs
+- **Alternative Documentation (ReDoc)**: http://localhost:3003/redoc
+- **Health Check**: http://localhost:3003/api/v1/health
 - **Mongo Express** (if using dev profile): http://localhost:8081
 
 ## API Endpoints
@@ -208,7 +208,7 @@ pytest -v
 docker build -t fastapi-mongodb-template .
 
 # Run container
-docker run -p 8000:8000 \
+docker run -p 3003:3003 \
   -e MONGODB_URL=mongodb://host.docker.internal:27017 \
   fastapi-mongodb-template
 ```
@@ -216,14 +216,14 @@ docker run -p 8000:8000 \
 ### Docker Compose Services
 
 ```yaml
-- api: FastAPI application (port 8000)
+- api: FastAPI application (port 3003)
 - mongodb: MongoDB database (port 27017)
 - mongo-express: Web UI for MongoDB (port 8081) [dev profile only]
 ```
 
 **Commands:**
 
-``` bash
+```bash
 # Start services
 docker-compose up -d
 

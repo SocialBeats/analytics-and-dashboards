@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Server
     HOST: str = Field(default="0.0.0.0")
-    PORT: int = Field(default=8000)
+    PORT: int = Field(default=3003)
 
     # Database
     MONGODB_URL: str = Field(default="mongodb://localhost:27017")
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     MONGODB_MIN_CONNECTIONS: int = Field(default=1)
 
     # CORS
-    CORS_ORIGINS: List[str] = Field(default=["http://localhost:3000", "http://localhost:8000"])
+    CORS_ORIGINS: List[str] = Field(default=["http://localhost:3000", "http://localhost:3003"])
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
     CORS_ALLOW_METHODS: List[str] = Field(default=["*"])
     CORS_ALLOW_HEADERS: List[str] = Field(default=["*"])
