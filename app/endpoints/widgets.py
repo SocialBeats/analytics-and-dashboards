@@ -18,7 +18,7 @@ def get_widget_service(db: AsyncIOMotorDatabase = Depends(get_db)) -> WidgetServ
 
 
 @router.get(
-    "/widgets",
+    "/analytics/widgets",
     response_model=List[WidgetResponse],
     summary="Get all widgets",
     description="Retrieve a list of all widgets with optional dashboard filtering and pagination. Widgets are sorted by position (row-major order)."
@@ -35,7 +35,7 @@ async def get_widgets(
 
 
 @router.get(
-    "/widgets/{widget_id}",
+    "/analytics/widgets/{widget_id}",
     response_model=WidgetResponse,
     summary="Get widget by ID",
     description="Retrieve a specific widget by its unique identifier"
@@ -50,7 +50,7 @@ async def get_widget(
 
 
 @router.post(
-    "/widgets",
+    "/analytics/widgets",
     response_model=WidgetResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create new widget",
@@ -66,7 +66,7 @@ async def create_widget(
 
 
 @router.put(
-    "/widgets/{widget_id}",
+    "/analytics/widgets/{widget_id}",
     response_model=WidgetResponse,
     summary="Update widget",
     description="Update an existing widget with the provided data. Widget must fit within 5-column grid."
@@ -82,7 +82,7 @@ async def update_widget(
 
 
 @router.delete(
-    "/widgets/{widget_id}",
+    "/analytics/widgets/{widget_id}",
     status_code=status.HTTP_200_OK,
     summary="Delete widget",
     description="Delete a widget by its unique identifier"
@@ -97,7 +97,7 @@ async def delete_widget(
 
 
 @router.get(
-    "/dashboards/{dashboard_id}/widgets",
+    "/analytics/dashboards/{dashboard_id}/widgets",
     response_model=List[WidgetResponse],
     summary="Get widgets by dashboard",
     description="Retrieve all widgets for a specific dashboard, sorted by position"

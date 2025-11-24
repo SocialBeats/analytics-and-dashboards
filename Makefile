@@ -21,7 +21,7 @@ install-dev:
 	pip install -r requirements-dev.txt
 
 run:
-	uvicorn main:app --reload --host 0.0.0.0 --port 8000
+	uvicorn main:app --reload --host 0.0.0.0 --port 3003
 
 test:
 	pytest --cov=app --cov-report=term-missing --cov-report=html

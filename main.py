@@ -62,7 +62,7 @@ async def root():
         "message": f"Welcome to {settings.APP_NAME}",
         "version": settings.APP_VERSION,
         "docs": "/docs",
-        "health": "/api/v1/health",
+        "health": "/api/v1/analytics/health",
     }
 
 

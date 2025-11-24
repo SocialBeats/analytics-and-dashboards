@@ -19,7 +19,7 @@ def get_beat_metrics_service(db: AsyncIOMotorDatabase = Depends(get_db)) -> Beat
 
 
 @router.get(
-    "/beat-metrics",
+    "/analytics/beat-metrics",
     response_model=List[BeatMetricsResponse],
     summary="Get all beat metrics",
     description="Retrieve a list of all beat metrics with optional filtering and pagination.",
@@ -36,7 +36,7 @@ async def get_beat_metrics(
 
 
 @router.get(
-    "/beat-metrics/{beat_metrics_id}",
+    "/analytics/beat-metrics/{beat_metrics_id}",
     response_model=BeatMetricsResponse,
     summary="Get beat metrics by ID",
     description="Retrieve a specific beat metrics by its unique identifier",
@@ -50,7 +50,7 @@ async def get_beat_metrics_by_id(
 
 
 @router.post(
-    "/beat-metrics",
+    "/analytics/beat-metrics",
     response_model=BeatMetricsResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create new beat metrics",
@@ -65,7 +65,7 @@ async def create_beat_metrics(
 
 
 @router.put(
-    "/beat-metrics/{beat_metrics_id}",
+    "/analytics/beat-metrics/{beat_metrics_id}",
     response_model=BeatMetricsResponse,
     summary="Update beat metrics",
     description="Update an existing beat metrics with the provided data",
@@ -81,7 +81,7 @@ async def update_beat_metrics(
 
 
 @router.delete(
-    "/beat-metrics/{beat_metrics_id}",
+    "/analytics/beat-metrics/{beat_metrics_id}",
     status_code=status.HTTP_200_OK,
     summary="Delete beat metrics",
     description="Delete a beat metrics by its unique identifier",
