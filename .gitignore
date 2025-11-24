@@ -128,9 +128,6 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 
-# Docker
-.dockerignore
-
 # Logs
 logs/
 *.log
@@ -142,4 +139,4 @@ temp/
 
 # Backup files
 *.bak
-*~
+*~temp_audio/
