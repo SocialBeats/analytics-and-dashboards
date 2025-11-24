@@ -10,6 +10,18 @@ from app.models.beat_metrics import CoreMetrics, ExtraMetrics
 class BeatMetricsCreate(BaseModel):
     """
     Schema for creating a new BeatMetrics record.
+    The metrics will be automatically calculated from the audio file.
+    """
+    model_config = ConfigDict(
+        from_attributes=True
+    )
+
+    beatId: str = Field(..., description="Unique identifier for the beat")
+    audioUrl: Optional[str] = Field(None, description="URL to the audio file (if file is stored externally)")
+
+class BeatMetricsCreateInternal(BaseModel):
+    """
+    Internal schema for creating a new BeatMetrics record with calculated metrics.
     """
     model_config = ConfigDict(
         from_attributes=True

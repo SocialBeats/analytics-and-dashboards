@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = Field(default="HS256")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30)
 
+    # File Storage
+    TEMP_AUDIO_DIR: str = Field(default="temp_audio")
+    MAX_UPLOAD_SIZE: int = Field(default=100 * 1024 * 1024)  # 100MB
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

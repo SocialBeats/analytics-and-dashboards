@@ -4,7 +4,7 @@ BeatMetrics endpoints - REST API for BeatMetrics resource
 
 from typing import List, Optional
 from app.schemas.beat_metrics import BeatMetricsResponse, BeatMetricsUpdate, BeatMetricsCreate
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, UploadFile, File, Form
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.database.config import get_db
@@ -54,14 +54,31 @@ async def get_beat_metrics_by_id(
     response_model=BeatMetricsResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create new beat metrics",
-    description="Create a new beat metrics with the provided data",
+    description="Create a new beat metrics by analyzing an audio file. Provide either an audio file upload or audioUrl.",
 )
 async def create_beat_metrics(
-    beat_metrics: BeatMetricsCreate, service: BeatMetricsService = Depends(get_beat_metrics_service)
+    beatId: str = Form(..., description="Unique identifier for the beat"),
+    audioUrl: Optional[str] = Form(None, description="URL to the audio file (alternative to file upload)"),
+    audioFile: Optional[UploadFile] = File(None, description="Audio file to analyze"),
+    service: BeatMetricsService = Depends(get_beat_metrics_service)
 ):
-    """Create a new beat metrics"""
+    """
+    Create a new beat metrics by analyzing an audio file.
+
+    You can either:
+    - Upload an audio file using audioFile parameter
+    - Provide a URL to an audio file using audioUrl parameter
+
+    The audio will be analyzed and all metrics will be calculated automatically.
+    """
     await service.ensure_indexes()
-    return await service.create(beat_metrics)
+
+    beat_metrics_data = BeatMetricsCreate(
+        beatId=beatId,
+        audioUrl=audioUrl
+    )
+
+    return await service.create(beat_metrics_data, audio_file=audioFile)
 
 
 @router.put(
