@@ -9,6 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.database.config import get_db
 from app.services.beat_metrics_service import BeatMetricsService
+from app.middleware.authentication import get_current_user
 
 router = APIRouter()
 
@@ -28,6 +29,7 @@ async def get_beat_metrics(
     beat_id: Optional[str] = Query(None, alias="beatId", description="Filter by beat ID"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
+    user: dict = Depends(get_current_user),
     service: BeatMetricsService = Depends(get_beat_metrics_service),
 ):
     """Get all beat metrics with optional filtering and pagination"""
@@ -42,7 +44,9 @@ async def get_beat_metrics(
     description="Retrieve a specific beat metrics by its unique identifier",
 )
 async def get_beat_metrics_by_id(
-    beat_metrics_id: str, service: BeatMetricsService = Depends(get_beat_metrics_service)
+    beat_metrics_id: str,
+    user: dict = Depends(get_current_user),
+    service: BeatMetricsService = Depends(get_beat_metrics_service)
 ):
     """Get a specific beat metrics by ID"""
     await service.ensure_indexes()
@@ -57,7 +61,9 @@ async def get_beat_metrics_by_id(
     description="Create a new beat metrics with the provided data",
 )
 async def create_beat_metrics(
-    beat_metrics: BeatMetricsCreate, service: BeatMetricsService = Depends(get_beat_metrics_service)
+    beat_metrics: BeatMetricsCreate,
+    user: dict = Depends(get_current_user),
+    service: BeatMetricsService = Depends(get_beat_metrics_service)
 ):
     """Create a new beat metrics"""
     await service.ensure_indexes()
@@ -73,6 +79,7 @@ async def create_beat_metrics(
 async def update_beat_metrics(
     beat_metrics_id: str,
     beat_metrics: BeatMetricsUpdate,
+    user: dict = Depends(get_current_user),
     service: BeatMetricsService = Depends(get_beat_metrics_service),
 ):
     """Update an existing beat metrics"""
@@ -87,7 +94,9 @@ async def update_beat_metrics(
     description="Delete a beat metrics by its unique identifier",
 )
 async def delete_beat_metrics(
-    beat_metrics_id: str, service: BeatMetricsService = Depends(get_beat_metrics_service)
+    beat_metrics_id: str,
+    user: dict = Depends(get_current_user),
+    service: BeatMetricsService = Depends(get_beat_metrics_service)
 ):
     """Delete a beat metrics by ID"""
     await service.ensure_indexes()
