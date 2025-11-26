@@ -73,3 +73,13 @@ class ValidationException(BaseAPIException):
 
     def __init__(self, detail: str = "Validation error"):
         super().__init__(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+
+
+class AudioProcessingException(BaseAPIException):
+    """Exception raised for audio processing errors"""
+
+    def __init__(self, detail: str = "Audio processing failed"):
+        super().__init__(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=detail
+        )

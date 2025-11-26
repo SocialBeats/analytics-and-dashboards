@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     #             El algoritmo se infiere automáticamente del header del token
     JWT_SECRET: str = Field(default="your-secret-key-here-change-in-production")
 
+    # File Storage
+    TEMP_AUDIO_DIR: str = Field(default="temp_audio")
+    MAX_UPLOAD_SIZE: int = Field(default=100 * 1024 * 1024)  # 100MB
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
