@@ -36,10 +36,11 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = Field(default="INFO")
     LOG_FORMAT: str = Field(default="json")
 
-    # Security (optional)
-    SECRET_KEY: str = Field(default="your-secret-key-here-change-in-production")
-    ALGORITHM: str = Field(default="HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30)
+    # Security & JWT Authentication
+    # JWT_SECRET: Clave secreta para firmar/verificar tokens JWT
+    #             DEBE ser la misma en todos los servicios que comparten autenticación
+    #             El algoritmo se infiere automáticamente del header del token
+    JWT_SECRET: str = Field(default="your-secret-key-here-change-in-production")
 
     # File Storage
     TEMP_AUDIO_DIR: str = Field(default="temp_audio")

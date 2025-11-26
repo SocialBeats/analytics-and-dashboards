@@ -8,6 +8,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from app.database.config import get_db
 from app.schemas.widget import WidgetCreate, WidgetResponse, WidgetUpdate
 from app.services.widget_service import WidgetService
+from app.middleware.authentication import get_current_user
 
 router = APIRouter()
 
@@ -27,6 +28,7 @@ async def get_widgets(
     dashboard_id: Optional[str] = Query(None, alias="dashboardId", description="Filter by dashboard ID"),
     skip: int = Query(0, ge=0, description="Number of widgets to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of widgets to return"),
+    user: dict = Depends(get_current_user),
     service: WidgetService = Depends(get_widget_service)
 ):
     """Get all widgets with optional filtering and pagination"""
@@ -42,6 +44,7 @@ async def get_widgets(
 )
 async def get_widget(
     widget_id: str,
+    user: dict = Depends(get_current_user),
     service: WidgetService = Depends(get_widget_service)
 ):
     """Get a specific widget by ID"""
@@ -58,6 +61,7 @@ async def get_widget(
 )
 async def create_widget(
     widget: WidgetCreate,
+    user: dict = Depends(get_current_user),
     service: WidgetService = Depends(get_widget_service)
 ):
     """Create a new widget"""
@@ -74,6 +78,7 @@ async def create_widget(
 async def update_widget(
     widget_id: str,
     widget: WidgetUpdate,
+    user: dict = Depends(get_current_user),
     service: WidgetService = Depends(get_widget_service)
 ):
     """Update an existing widget"""
@@ -89,6 +94,7 @@ async def update_widget(
 )
 async def delete_widget(
     widget_id: str,
+    user: dict = Depends(get_current_user),
     service: WidgetService = Depends(get_widget_service)
 ):
     """Delete a widget"""
@@ -104,6 +110,7 @@ async def delete_widget(
 )
 async def get_dashboard_widgets(
     dashboard_id: str,
+    user: dict = Depends(get_current_user),
     service: WidgetService = Depends(get_widget_service)
 ):
     """Get all widgets for a specific dashboard"""

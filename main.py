@@ -11,9 +11,10 @@ from app.core.config import settings
 from app.core.logging import logger
 from app.database import database
 from app.endpoints import health
-from app.endpoints import dashboards  
-from app.endpoints import widgets  
-from app.endpoints import beat_metrics  
+from app.endpoints import dashboards
+from app.endpoints import widgets
+from app.endpoints import beat_metrics
+from app.middleware.authentication import verify_jwt_token  
 
 
 @asynccontextmanager
@@ -49,6 +50,9 @@ app.add_middleware(
     allow_methods=settings.CORS_ALLOW_METHODS,
     allow_headers=settings.CORS_ALLOW_HEADERS,
 )
+
+# JWT Authentication Middleware
+app.middleware("http")(verify_jwt_token)
 
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(dashboards.router, prefix="/api/v1", tags=["dashboards"])  
