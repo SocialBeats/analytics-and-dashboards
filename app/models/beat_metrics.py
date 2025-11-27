@@ -53,15 +53,15 @@ class ExtraMetrics(BaseModel):
         None, description="Nivel de potencia sonora en decibeles (dB)"
     )
 
-    # Perfil melodico (PREMIUM)
+    # Perfil melodico (STUDIO)
     hz_range: Optional[float] = Field(None, description="Rango de frecuencias melodicas en Hz")
     mean_hz: Optional[float] = Field(None, description="Frecuencia melodica promedio en Hz")
 
-    # Textura (PREMIUM)
+    # Textura (STUDIO)
     character: Optional[str] = Field(None, description="Caracter de la textura sonora (ej. suave, rugosa)")
     opening: Optional[float] = Field(None, description="Medida de apertura en la textura sonora")
 
-    # Articulacion (PREMIUM)
+    # Articulacion (STUDIO)
     style: Optional[str] = Field(None, description="Estilo de articulacion (ej. legato, staccato)")
     suddent_changes: Optional[float] = Field(None, description="Número de cambios repentinos en la articulacion")
     soft_changes: Optional[float] = Field(None, description="Número de cambios suaves en la articulacion")
