@@ -21,6 +21,10 @@ passlib[bcrypt]==1.7.4
 # HTTP Client
 httpx==0.25.2
 
+# Rate Limiting
+slowapi==0.1.9
+redis==5.0.1
+
 # Audio Analysis
 librosa==0.10.1
 numpy==1.26.2
