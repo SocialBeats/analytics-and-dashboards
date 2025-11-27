@@ -13,6 +13,7 @@ services:
     environment:
       - MONGODB_URL=mongodb://mongodb:27017
       - MONGODB_DB_NAME=fastapi_template
+      - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=development
       - DEBUG=true
       - LOG_LEVEL=INFO
@@ -20,6 +21,8 @@ services:
       - MAX_UPLOAD_SIZE=104857600
     depends_on:
       mongodb:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - app-network
@@ -51,6 +54,25 @@ services:
       retries: 5
       start_period: 10s
 
+  # Redis (Rate Limiting Storage)
+  redis:
+    image: redis:7-alpine
+    container_name: analytics-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+      - socialbeats-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - redis_data:/data
+
   # Mongo Express (MongoDB Web UI - optional, for development)
   mongo-express:
     image: mongo-express:latest
@@ -81,4 +103,6 @@ volumes:
   mongodb_config:
     driver: local
   audio_temp:
+    driver: local
+  redis_data:
     driver: local

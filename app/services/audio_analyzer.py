@@ -204,7 +204,7 @@ class AudioAnalyzer:
 
     def calculate_melodic_profile(self) -> Dict[str, Optional[float]]:
         """
-        Calculate melodic profile metrics (PREMIUM tier).
+        Calculate melodic profile metrics (STUDIO tier).
 
         Returns:
             Dictionary with hz_range and mean_hz
@@ -234,7 +234,7 @@ class AudioAnalyzer:
 
     def calculate_texture_metrics(self) -> Dict[str, Optional[any]]:
         """
-        Calculate texture metrics (PREMIUM tier).
+        Calculate texture metrics (STUDIO tier).
 
         Returns:
             Dictionary with character and opening
@@ -261,7 +261,7 @@ class AudioAnalyzer:
 
     def calculate_articulation_metrics(self) -> Dict[str, Optional[any]]:
         """
-        Calculate articulation metrics (PREMIUM tier).
+        Calculate articulation metrics (STUDIO tier).
 
         Returns:
             Dictionary with style, sudden_changes, soft_changes, and ratio

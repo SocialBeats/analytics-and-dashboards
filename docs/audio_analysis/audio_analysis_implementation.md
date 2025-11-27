@@ -101,7 +101,7 @@ Implementation of audio analysis system for calculating beat metrics using the l
 - **Output**: Float (dB scale)
 - **Interpretation**: Loudness in decibels
 
-#### PREMIUM Tier - Melodic Profile
+#### STUDIO Tier - Melodic Profile
 
 **1. hz_range** (Frequency range in Hz)
 - **Function**: `librosa.piptrack()` - max pitch - min pitch
@@ -113,7 +113,7 @@ Implementation of audio analysis system for calculating beat metrics using the l
 - **Output**: Float (Hz)
 - **Interpretation**: Average pitch of melodic content
 
-#### PREMIUM Tier - Texture
+#### STUDIO Tier - Texture
 
 **1. character** (Texture character)
 - **Function**: Classification based on spectral rolloff variance
@@ -125,7 +125,7 @@ Implementation of audio analysis system for calculating beat metrics using the l
 - **Output**: Float (normalized)
 - **Interpretation**: How spread out the frequency content is
 
-#### PREMIUM Tier - Articulation
+#### STUDIO Tier - Articulation
 
 **1. style** (Articulation style)
 - **Function**: Classification based on onset change ratio

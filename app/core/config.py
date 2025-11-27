@@ -42,6 +42,9 @@ class Settings(BaseSettings):
     #             El algoritmo se infiere automáticamente del header del token
     JWT_SECRET: str = Field(default="your-secret-key-here-change-in-production")
 
+    # Rate Limiting
+    REDIS_URL: str = Field(default="redis://localhost:6379")
+
     # File Storage
     TEMP_AUDIO_DIR: str = Field(default="temp_audio")
     MAX_UPLOAD_SIZE: int = Field(default=100 * 1024 * 1024)  # 100MB

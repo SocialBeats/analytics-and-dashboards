@@ -418,7 +418,7 @@ async def create(...):
 Potential improvements:
 1. **Batch Processing**: Analyze multiple beats in parallel
 2. **Webhook Support**: Notify external services when analysis completes
-3. **Partial Metrics**: Allow requesting only specific metric tiers (core, pro, premium)
+3. **Partial Metrics**: Allow requesting only specific metric tiers (core, pro, studio)
 4. **Caching**: Cache analysis results to avoid reprocessing
 5. **ML Features**: Genre classification, mood detection
 6. **Comparison API**: Compare metrics between different beats
