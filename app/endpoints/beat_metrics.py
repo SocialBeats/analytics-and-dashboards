@@ -64,7 +64,6 @@ async def create_beat_metrics(
     beatId: str = Form(..., description="Unique identifier for the beat"),
     audioUrl: Optional[str] = Form(None, description="URL to the audio file (alternative to file upload)"),
     audioFile: Optional[UploadFile] = File(None, description="Audio file to analyze"),
-    beat_metrics: BeatMetricsCreate,
     user: dict = Depends(get_current_user),
     service: BeatMetricsService = Depends(get_beat_metrics_service)
 ):
