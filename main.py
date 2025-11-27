@@ -17,7 +17,8 @@ from app.endpoints import beat_metrics
 from app.endpoints.examples import example_rate_limit
 from app.middleware.authentication import verify_jwt_token
 from app.middleware.rate_limiter import limiter, init_redis, close_redis, rate_limit_handler
-from slowapi.errors import RateLimitExceeded  
+from slowapi.errors import RateLimitExceeded
+from app.middleware.circuit_breaker import circuit_breaker_middleware
 
 
 @asynccontextmanager
@@ -62,6 +63,8 @@ app.add_middleware(
 
 # JWT Authentication Middleware
 app.middleware("http")(verify_jwt_token)
+# Circuit Breaker Middleware
+app.middleware("http")(circuit_breaker_middleware)
 
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(dashboards.router, prefix="/api/v1", tags=["dashboards"])
