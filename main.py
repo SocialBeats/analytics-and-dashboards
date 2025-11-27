@@ -15,6 +15,7 @@ from app.endpoints import dashboards
 from app.endpoints import widgets
 from app.endpoints import beat_metrics
 from app.middleware.authentication import verify_jwt_token  
+from app.middleware.circuit_breaker import circuit_breaker_middleware
 
 
 @asynccontextmanager
@@ -53,6 +54,8 @@ app.add_middleware(
 
 # JWT Authentication Middleware
 app.middleware("http")(verify_jwt_token)
+# Circuit Breaker Middleware
+app.middleware("http")(circuit_breaker_middleware)
 
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(dashboards.router, prefix="/api/v1", tags=["dashboards"])  
