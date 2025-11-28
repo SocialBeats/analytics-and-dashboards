@@ -100,9 +100,9 @@ def get_rate_limit_for_user(request: Request) -> str:
     if not hasattr(request.state, "user") or not request.state.user:
         return "10/minute"
 
-    # Get pricing plan from user or headers
+    # Get pricing plan from user state (set by authentication middleware)
     user = request.state.user
-    plan = user.get("pricingPlan") or request.headers.get("x-pricing-plan", "free")
+    plan = user.get("pricingPlan", "free")
 
     # Rate limits by plan
     limits = {

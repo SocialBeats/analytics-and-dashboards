@@ -58,7 +58,7 @@ async def get_beat_metrics_by_id(
     response_model=BeatMetricsResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Create new beat metrics",
-    description="Create a new beat metrics by analyzing an audio file. Provide either an audio file upload or audioUrl.",
+    description="Create a new beat metrics by analyzing an audio file. User must own the beat.",
 )
 async def create_beat_metrics(
     beatId: str = Form(..., description="Unique identifier for the beat"),
@@ -75,6 +75,11 @@ async def create_beat_metrics(
     - Provide a URL to an audio file using audioUrl parameter
 
     The audio will be analyzed and all metrics will be calculated automatically.
+
+    - Solo el dueño del beat puede crear métricas para ese beat
+    - Admins pueden crear métricas para cualquier beat
+
+    La validación de permisos se hace automáticamente consultando el microservicio de beats.
     """
     await service.ensure_indexes()
 
@@ -83,14 +88,17 @@ async def create_beat_metrics(
         audioUrl=audioUrl
     )
 
-    return await service.create(beat_metrics_data, audio_file=audioFile)
+    user_roles = user.get("roles", [])
+    is_admin = "admin" in user_roles
+
+    return await service.create(beat_metrics_data, user_id=user["userId"], is_admin=is_admin, audio_file=audioFile)
 
 
 @router.put(
     "/analytics/beat-metrics/{beat_metrics_id}",
     response_model=BeatMetricsResponse,
     summary="Update beat metrics",
-    description="Update an existing beat metrics with the provided data",
+    description="Update an existing beat metrics. User must own the beat or be an admin.",
 )
 async def update_beat_metrics(
     beat_metrics_id: str,
@@ -98,22 +106,40 @@ async def update_beat_metrics(
     user: dict = Depends(get_current_user),
     service: BeatMetricsService = Depends(get_beat_metrics_service),
 ):
-    """Update an existing beat metrics"""
+    """
+    Update an existing beat metrics
+
+    - Solo el dueño del beat puede actualizar sus métricas
+    - Admins pueden actualizar métricas de cualquier beat
+
+    La validación de permisos se hace automáticamente consultando el microservicio de beats.
+    """
     await service.ensure_indexes()
-    return await service.update(beat_metrics_id, beat_metrics)
+    user_roles = user.get("roles", [])
+    is_admin = "admin" in user_roles
+    return await service.update(beat_metrics_id, beat_metrics, user_id=user["userId"], is_admin=is_admin)
 
 
 @router.delete(
     "/analytics/beat-metrics/{beat_metrics_id}",
     status_code=status.HTTP_200_OK,
     summary="Delete beat metrics",
-    description="Delete a beat metrics by its unique identifier",
+    description="Delete a beat metrics. User must own the beat or be an admin.",
 )
 async def delete_beat_metrics(
     beat_metrics_id: str,
     user: dict = Depends(get_current_user),
     service: BeatMetricsService = Depends(get_beat_metrics_service)
 ):
-    """Delete a beat metrics by ID"""
+    """
+    Delete a beat metrics by ID
+
+    - Solo el dueño del beat puede eliminar sus métricas
+    - Admins pueden eliminar métricas de cualquier beat
+
+    La validación de permisos se hace automáticamente consultando el microservicio de beats.
+    """
     await service.ensure_indexes()
-    return await service.delete(beat_metrics_id)
+    user_roles = user.get("roles", [])
+    is_admin = "admin" in user_roles
+    return await service.delete(beat_metrics_id, user_id=user["userId"], is_admin=is_admin)

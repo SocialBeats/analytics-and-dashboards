@@ -1,11 +1,11 @@
 """
-JWT Authentication Middleware
-Validates JWT tokens directly from Authorization header
+API Gateway Authentication Middleware
+Trusts authentication performed by the API Gateway.
+Reads user information from headers set by the Gateway.
 """
 
+import json
 from fastapi import Request, HTTPException, status
-from jose import jwt, JWTError
-from app.core.config import settings
 from app.core.logging import logger
 
 
@@ -21,9 +21,13 @@ OPEN_PATHS = [
 
 async def verify_jwt_token(request: Request, call_next):
     """
-    Middleware de autenticación JWT para FastAPI
+    Middleware de autenticación que confía en el API Gateway.
 
-    Valida tokens JWT directamente desde el header Authorization.
+    El API Gateway ya validó el token JWT y agregó headers con la información del usuario:
+    - x-user-id: ID del usuario
+    - x-gateway-authenticated: Marca de autenticación del Gateway
+
+    Este middleware simplemente lee esos headers y enriquece el request.state.user
 
     Args:
         request: FastAPI request object
@@ -33,7 +37,7 @@ async def verify_jwt_token(request: Request, call_next):
         Response from next middleware
 
     Raises:
-        HTTPException: Si la autenticación falla
+        HTTPException: Si la autenticación del Gateway falla
     """
 
     # Skip authentication for open paths
@@ -47,83 +51,48 @@ async def verify_jwt_token(request: Request, call_next):
             detail="You must specify the API version, e.g. /api/v1/..."
         )
 
-    # Get Authorization header
-    auth_header = request.headers.get("authorization")
+    # Check if request comes from authenticated Gateway
+    gateway_authenticated = request.headers.get("x-gateway-authenticated")
+    user_id = request.headers.get("x-user-id")
+    roles_header = request.headers.get("x-user-roles")  # Array of roles as JSON string
+    pricing_plan = request.headers.get("x-user-pricing-plan")
 
-    if not auth_header:
-        logger.warn(f"Unauthenticated request to {request.url.path}")
+    if not gateway_authenticated or gateway_authenticated != "true":
+        logger.warn(f"Unauthenticated request to {request.url.path}: Missing x-gateway-authenticated header")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing token",
+            detail="Authentication required. Request must come through API Gateway.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Extract token from "Bearer <token>" format
-    token_parts = auth_header.split(" ")
-    if len(token_parts) != 2 or token_parts[0].lower() != "bearer":
-        logger.warn(f"Invalid authorization header format for {request.url.path}")
+    if not user_id:
+        logger.warn(f"Authenticated request to {request.url.path} missing x-user-id header")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authorization header format. Use: Bearer <token>",
+            detail="Missing user identification from Gateway",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    token = token_parts[1]
+    # Parse roles from JSON string to array
+    roles = []
+    if roles_header:
+        try:
+            roles = json.loads(roles_header)
+            if not isinstance(roles, list):
+                roles = [roles]  # Si es un string, convertirlo a array
+        except (json.JSONDecodeError, TypeError):
+            # Si falla el parsing, intentar split por comas como fallback
+            roles = [r.strip() for r in roles_header.split(",") if r.strip()]
 
-    try:
-        # Verify and decode JWT token
-        # El algoritmo se infiere del header del token (como en JavaScript)
-        payload = jwt.decode(
-            token,
-            settings.JWT_SECRET,
-            options={"verify_signature": True}
-        )
+    # Add user information to request state
+    request.state.user = {
+        "userId": user_id,
+        "roles": roles,
+        "pricingPlan": pricing_plan,
+    }
 
-        # Extract user information from token
-        user_id = payload.get("userId") or payload.get("id")
-        email = payload.get("email")
-        role = payload.get("role", "user")
-
-        if not user_id:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token payload: missing user ID"
-            )
-
-        # Add user information to request state
-        request.state.user = {
-            "userId": user_id,
-            "email": email,
-            "role": role,
-        }
-
-        logger.debug(f"User authenticated via JWT: {user_id} ({role})")
-        return await call_next(request)
-
-    except JWTError as e:
-        error_msg = str(e)
-        logger.warn(f"JWT validation failed for {request.url.path}: {error_msg}")
-
-        # Handle specific JWT errors
-        if "expired" in error_msg.lower():
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token expired. Please login again.",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    except Exception as e:
-        logger.error(f"Authentication error for {request.url.path}: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Authentication service error"
-        )
+    logger.debug(f"User authenticated via Gateway: {user_id}")
+    return await call_next(request)
 
 
 def get_current_user(request: Request) -> dict:
@@ -169,9 +138,18 @@ def require_role(allowed_roles: list[str]):
         Dependency function
     """
     def role_checker(user: dict = get_current_user) -> dict:
-        user_role = user.get("role", "user")
-        if user_role not in allowed_roles:
-            logger.warn(f"Access denied for user {user.get('userId')} with role {user_role}")
+        # roles es un array de strings (ej: ["admin", "user"])
+        user_roles = user.get("roles", [])
+
+        # Si roles es None o string vacío, usar array vacío
+        if not user_roles:
+            user_roles = []
+
+        # Verificar si el usuario tiene al menos uno de los roles permitidos
+        has_permission = any(role in allowed_roles for role in user_roles)
+
+        if not has_permission:
+            logger.warn(f"Access denied for user {user.get('userId')} with roles {user_roles}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Insufficient permissions. Required roles: {', '.join(allowed_roles)}"

@@ -21,9 +21,24 @@ async def list_dashboards(
     user: dict = Depends(get_current_user),
     service: DashboardService = Depends(get_dashboard_service)
 ):
+    """
+    List dashboards
+
+    - Usuarios regulares: Solo ven sus propios dashboards
+    - Admins: Ven todos los dashboards
+
+    El filtrado se hace automáticamente según el rol del usuario autenticado.
+    """
     await service.ensure_indexes()
     await service.seed_initial()
-    return await service.get_all(skip=skip, limit=limit)
+
+    # Si el usuario es admin, mostrar todos los dashboards
+    user_roles = user.get("roles", [])
+    if "admin" in user_roles:
+        return await service.get_all(skip=skip, limit=limit)
+
+    # Usuarios regulares solo ven sus propios dashboards
+    return await service.get_by_owner(owner_id=user["userId"], skip=skip, limit=limit)
 
 
 @router.get("/analytics/dashboards/{dashboard_id}", response_model=DashboardResponse)
@@ -42,8 +57,15 @@ async def create_dashboard(
     user: dict = Depends(get_current_user),
     service: DashboardService = Depends(get_dashboard_service)
 ):
+    """
+    Create a new dashboard
+
+    El owner_id se obtiene automáticamente del usuario autenticado,
+    NO se envía desde el frontend.
+    """
     await service.ensure_indexes()
-    return await service.create(dashboard)
+    # Pasar el userId del usuario autenticado al servicio
+    return await service.create(dashboard, owner_id=user["userId"])
 
 
 @router.put("/analytics/dashboards/{dashboard_id}", response_model=DashboardResponse)
@@ -53,8 +75,18 @@ async def update_dashboard(
     user: dict = Depends(get_current_user),
     service: DashboardService = Depends(get_dashboard_service)
 ):
+    """
+    Update a dashboard
+
+    - Usuarios regulares: Solo pueden actualizar sus propios dashboards
+    - Admins: Pueden actualizar cualquier dashboard
+
+    La validación de permisos se hace automáticamente.
+    """
     await service.ensure_indexes()
-    return await service.update(dashboard_id, dashboard)
+    user_roles = user.get("roles", [])
+    is_admin = "admin" in user_roles
+    return await service.update(dashboard_id, dashboard, user_id=user["userId"], is_admin=is_admin)
 
 
 @router.delete("/analytics/dashboards/{dashboard_id}", status_code=status.HTTP_200_OK)
@@ -63,5 +95,15 @@ async def delete_dashboard(
     user: dict = Depends(get_current_user),
     service: DashboardService = Depends(get_dashboard_service)
 ):
+    """
+    Delete a dashboard
+
+    - Usuarios regulares: Solo pueden eliminar sus propios dashboards
+    - Admins: Pueden eliminar cualquier dashboard
+
+    La validación de permisos se hace automáticamente.
+    """
     await service.ensure_indexes()
-    return await service.delete(dashboard_id)
+    user_roles = user.get("roles", [])
+    is_admin = "admin" in user_roles
+    return await service.delete(dashboard_id, user_id=user["userId"], is_admin=is_admin)

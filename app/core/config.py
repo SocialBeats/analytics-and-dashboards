@@ -36,11 +36,12 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = Field(default="INFO")
     LOG_FORMAT: str = Field(default="json")
 
-    # Security & JWT Authentication
-    # JWT_SECRET: Clave secreta para firmar/verificar tokens JWT
-    #             DEBE ser la misma en todos los servicios que comparten autenticación
-    #             El algoritmo se infiere automáticamente del header del token
-    JWT_SECRET: str = Field(default="your-secret-key-here-change-in-production")
+    # Security & JWT Authentication (DEPRECATED)
+    # JWT_SECRET: Ya NO se requiere en este microservicio.
+    #             La autenticación se realiza en el API Gateway, que añade headers
+    #             con la información del usuario. Este microservicio confía en esos headers.
+    #             Mantenemos esta variable solo por compatibilidad, pero no se usa.
+    JWT_SECRET: str = Field(default="")
 
     # Rate Limiting
     REDIS_URL: str = Field(default="redis://localhost:6379")
@@ -48,6 +49,9 @@ class Settings(BaseSettings):
     # File Storage
     TEMP_AUDIO_DIR: str = Field(default="temp_audio")
     MAX_UPLOAD_SIZE: int = Field(default=100 * 1024 * 1024)  # 100MB
+
+    # Microservices URLs
+    BEATS_SERVICE_URL: str = Field(default="http://localhost:3002")  # URL del microservicio de beats
 
     model_config = SettingsConfigDict(
         env_file=".env",
