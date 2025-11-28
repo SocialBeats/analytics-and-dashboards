@@ -1,24 +1,33 @@
-# JWT Authentication Middleware
+# API Gateway Authentication Middleware
 
 ## Descripción
 
-Este microservicio implementa un middleware de autenticación JWT que valida tokens directamente desde el header `Authorization`.
+Este microservicio implementa un middleware de autenticación que **confía en el API Gateway**.
 
-El middleware intercepta todas las peticiones HTTP y verifica que contengan un token JWT válido antes de permitir el acceso a los endpoints protegidos.
+El API Gateway ya valida los tokens JWT y añade headers con la información del usuario decodificada. Este microservicio simplemente lee esos headers, evitando la validación duplicada del token.
+
+## Patrón de Arquitectura
+
+### API Gateway Pattern - Centralized Authentication
+
+- ✅ El **API Gateway** valida el token JWT una sola vez
+- ✅ El Gateway añade headers con información del usuario (`x-user-id`, `x-gateway-authenticated`)
+- ✅ Los **microservicios** confían en estos headers y NO validan el token nuevamente
+
+### Ventajas
+
+1. **Rendimiento**: No hay validación duplicada de tokens
+2. **Simplicidad**: Microservicios no necesitan conocer `JWT_SECRET`
+3. **Seguridad**: Autenticación centralizada en el Gateway
+4. **Escalabilidad**: Menos overhead en cada microservicio
 
 ## Configuración
 
 ### Variables de Entorno
 
-Configura las siguientes variables en tu archivo `.env`:
+Ya **NO se requiere** configurar `JWT_SECRET` en este microservicio, ya que la validación JWT se hace en el API Gateway.
 
-```bash
-# JWT_SECRET: Clave secreta para verificar tokens JWT
-# DEBE ser la misma que usa el servicio de autenticación
-JWT_SECRET="your-jwt-secret-key-here-change-in-production"
-```
-
-⚠️ **CRÍTICO**: El `JWT_SECRET` debe ser **idéntico** al usado en el servicio que genera los tokens (ej: servicio de autenticación).
+Si aún tienes `JWT_SECRET` en tu `.env`, puedes eliminarlo de forma segura.
 
 ## Rutas Abiertas (Sin Autenticación)
 
@@ -34,34 +43,46 @@ Todas las demás rutas bajo `/api/v1/` **requieren autenticación**.
 
 ## Cómo Funciona
 
-### 1. Request con Token JWT
+### 1. Request con Token JWT al API Gateway
 
-El cliente debe enviar el token JWT en el header `Authorization`:
+El cliente envía el token JWT al API Gateway en el header `Authorization`:
 
 ```http
 GET /api/v1/analytics/dashboards
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-### 2. Validación del Middleware
+### 2. Validación en el API Gateway
 
-El middleware:
-1. ✅ Verifica que el header `Authorization` existe
-2. ✅ Verifica el formato `Bearer <token>`
-3. ✅ Verifica la firma del token con `JWT_SECRET`
-4. ✅ Verifica que el token no ha expirado
-5. ✅ Extrae la información del usuario del token
-6. ✅ Añade la información al `request.state.user`
+El API Gateway:
 
-### 3. Token Válido
+1. ✅ Valida el token JWT (firma, expiración, etc.)
+2. ✅ Decodifica el token y extrae información del usuario
+3. ✅ Añade headers con la información del usuario:
+   - `x-user-id`: ID del usuario
+   - `x-gateway-authenticated`: `"true"`
+   - `x-user-email`: Email del usuario (opcional)
+   - `x-user-role`: Rol del usuario (opcional)
+4. ✅ Reenvía la petición al microservicio con los headers añadidos
 
-Si el token es válido, el request continúa y `request.state.user` contiene:
+### 3. Validación en el Microservicio
+
+El middleware del microservicio:
+
+1. ✅ Verifica que el header `x-gateway-authenticated` existe y es `"true"`
+2. ✅ Verifica que el header `x-user-id` existe
+3. ✅ Lee los headers adicionales (`x-user-email`, `x-user-role`)
+4. ✅ Añade la información al `request.state.user`
+
+### 4. Usuario Autenticado
+
+Si la autenticación es exitosa, `request.state.user` contiene:
 
 ```python
 {
-    "userId": "123",              # ID del usuario
-    "email": "user@example.com",  # Email
-    "role": "user"                # Rol (user, admin, etc.)
+    "userId": "123",              # ID del usuario (desde x-user-id)
+    "email": "user@example.com",  # Email (desde x-user-email)
+    "role": "user"                # Rol (desde x-user-role, default: "user")
 }
 ```
 
@@ -122,7 +143,9 @@ async def get_profile(request: Request):
 ## Respuestas de Error
 
 ### 400 Bad Request
+
 Falta la versión de API en la ruta:
+
 ```json
 {
   "detail": "You must specify the API version, e.g. /api/v1/..."
@@ -130,26 +153,26 @@ Falta la versión de API en la ruta:
 ```
 
 ### 401 Unauthorized
-Sin token o token expirado:
-```json
-{
-  "detail": "Missing token"
-}
-```
+
+Request no viene del Gateway autenticado:
 
 ```json
 {
-  "detail": "Token expired. Please login again."
+  "detail": "Authentication required. Request must come through API Gateway."
+}
+```
+
+Falta el user ID del Gateway:
+
+```json
+{
+  "detail": "Missing user identification from Gateway"
 }
 ```
 
 ### 403 Forbidden
-Token inválido o permisos insuficientes:
-```json
-{
-  "detail": "Invalid or expired token"
-}
-```
+
+Permisos insuficientes:
 
 ```json
 {
@@ -159,24 +182,39 @@ Token inválido o permisos insuficientes:
 
 ## Testing
 
-### Ejemplo con cURL
+### Testing a través del API Gateway (Producción)
 
 ```bash
 # 1. Obtener token del servicio de autenticación
 TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 
-# 2. Request sin autenticación (debería fallar)
-curl http://localhost:3003/api/v1/analytics/dashboards
-
-# 3. Request con autenticación
+# 2. Request a través del API Gateway (puerto 3000)
 curl -H "Authorization: Bearer $TOKEN" \
+     http://localhost:3000/api/v1/analytics/dashboards
+
+# 3. Health check (sin autenticación requerida)
+curl http://localhost:3000/api/v1/analytics/health
+```
+
+### Testing Directo al Microservicio (Desarrollo)
+
+Para testing directo sin pasar por el Gateway, simula los headers que añade el Gateway:
+
+```bash
+# Request con headers del Gateway simulados
+curl -H "x-gateway-authenticated: true" \
+     -H "x-user-id: 123" \
+     -H "x-user-email: test@example.com" \
+     -H "x-user-role: user" \
      http://localhost:3003/api/v1/analytics/dashboards
 
-# 4. Health check (sin autenticación requerida)
+# Health check (sin autenticación requerida)
 curl http://localhost:3003/api/v1/analytics/health
 ```
 
 ### Ejemplo con Python requests
+
+#### A través del API Gateway (Producción)
 
 ```python
 import requests
@@ -189,7 +227,29 @@ headers = {
     "Authorization": f"Bearer {token}"
 }
 
-# Request autenticado
+# Request autenticado a través del Gateway
+response = requests.get(
+    "http://localhost:3000/api/v1/analytics/dashboards",
+    headers=headers
+)
+
+print(response.json())
+```
+
+#### Testing Directo (Desarrollo)
+
+```python
+import requests
+
+# Simular headers del Gateway
+headers = {
+    "x-gateway-authenticated": "true",
+    "x-user-id": "123",
+    "x-user-email": "test@example.com",
+    "x-user-role": "user"
+}
+
+# Request directo al microservicio
 response = requests.get(
     "http://localhost:3003/api/v1/analytics/dashboards",
     headers=headers
@@ -200,93 +260,103 @@ print(response.json())
 
 ## Seguridad
 
-### Vulnerabilidades Comunes (y cómo las evitamos)
+### Consideraciones de Seguridad
 
-| Vulnerabilidad | Mitigación en este código |
-|----------------|---------------------------|
-| None algorithm attack | ✅ Especificamos algoritmo explícitamente |
-| Weak secret | ✅ Validamos longitud mínima en producción |
-| Token sidejacking | ✅ Requiere HTTPS en producción |
-| Token replay | ✅ Verificamos expiración (`exp` claim) |
-| Injection attacks | ✅ python-jose valida estructura JWT |
+**⚠️ IMPORTANTE**: Este microservicio **confía completamente** en el API Gateway para la autenticación.
+
+#### Requisitos de Seguridad
+
+1. **Red Privada**: El microservicio DEBE estar en una red privada, no accesible públicamente
+2. **Solo Gateway**: Solo el API Gateway debe poder comunicarse con este microservicio
+3. **Firewall**: Configurar firewall para bloquear tráfico directo que no venga del Gateway
+4. **HTTPS**: Usar HTTPS entre Gateway y microservicio en producción
+
+#### Vulnerabilidades Mitigadas
+
+| Vulnerabilidad | Cómo se mitiga |
+|----------------|----------------|
+| Token forgery | El Gateway valida la firma JWT |
+| Token expiration | El Gateway verifica expiración |
+| Header spoofing | El microservicio solo acepta tráfico del Gateway (red privada) |
+| Man-in-the-middle | HTTPS entre Gateway y microservicio |
 
 ## Troubleshooting
 
-### Error: "Missing token"
-**Causa**: No se envió el header `Authorization`
+### Error: "Authentication required. Request must come through API Gateway."
+
+**Causa**: Request no tiene el header `x-gateway-authenticated` o no es `"true"`
 
 **Solución**:
-```bash
-curl -H "Authorization: Bearer <token>" http://localhost:3003/api/v1/...
-```
 
-### Error: "Invalid authorization header format"
-**Causa**: Formato incorrecto del header
+- En producción: Asegúrate de que las peticiones pasen por el API Gateway
+- En desarrollo local: Añade el header manualmente para testing:
 
-**Solución**: Debe ser `Bearer <token>`, no solo `<token>`
+  ```bash
+  curl -H "x-gateway-authenticated: true" -H "x-user-id: 123" http://localhost:3003/api/v1/...
+  ```
 
-### Error: "Invalid or expired token"
-**Causa**: Token inválido o `JWT_SECRET` no coincide
+### Error: "Missing user identification from Gateway"
+
+**Causa**: El header `x-user-id` no está presente
 
 **Solución**:
-1. Verificar que `JWT_SECRET` sea idéntico en ambos servicios
-2. Verificar que el token no ha expirado
-3. Verificar que el token es un JWT válido en [jwt.io](https://jwt.io)
 
-### Error: "Invalid token payload: missing user ID"
-**Causa**: El token no contiene `userId` ni `id`
+- Verificar que el API Gateway esté añadiendo correctamente el header `x-user-id`
+- Verificar que el token JWT en el Gateway contenga `userId` o `id`
 
-**Solución**: El servicio que genera tokens debe incluir `userId` o `id` en el payload
+### Error: "Insufficient permissions. Required roles: admin"
+
+**Causa**: El usuario no tiene el rol requerido
+
+**Solución**:
+
+- Verificar el rol del usuario en el token
+- Verificar que el Gateway esté pasando correctamente el header `x-user-role`
 
 ## Logging
 
 El middleware registra los siguientes eventos:
 
 ### DEBUG Level
-```
-User authenticated via JWT: 123 (user)
+
+```text
+User authenticated via Gateway: 123 (user)
 ```
 
 ### WARN Level
-```
-Unauthenticated request to /api/v1/analytics/dashboards
-JWT validation failed for /api/v1/analytics/dashboards: Signature has expired
-```
 
-### ERROR Level
-```
-Authentication error for /api/v1/analytics/dashboards: <error_message>
+```text
+Unauthenticated request to /api/v1/analytics/dashboards: Missing x-gateway-authenticated header
+Authenticated request to /api/v1/analytics/dashboards missing x-user-id header
 ```
 
 ## Estructura de Archivos
 
-```
+```text
 app/
 ├── middleware/
 │   ├── __init__.py          # Package exports
-│   └── authentication.py    # JWT middleware y helpers
-├── core/
-│   └── config.py           # JWT_SECRET y ALGORITHM
+│   └── authentication.py    # Gateway authentication middleware
 └── endpoints/
     └── *.py                # Endpoints que usan autenticación
 
 docs/
-├── JWT_AUTHENTICATION.md         # Esta documentación
-├── JWT_CONFIG_EXPLAINED.md       # Explicación de variables
-└── APPLY_AUTH_TO_ENDPOINTS.md   # Guía de uso en endpoints
+├── jwt_auth/
+│   ├── JWT_AUTHENTICATION.md              # Esta documentación
+│   ├── AUTHENTICATION_IMPLEMENTATION.md   # Resumen de implementación
+│   └── APPLY_AUTH_TO_ENDPOINTS.md         # Guía de uso en endpoints
 ```
 
 ## Referencias
 
-- **Configuración de variables**: [JWT_CONFIG_EXPLAINED.md](JWT_CONFIG_EXPLAINED.md)
 - **Aplicar autenticación a endpoints**: [APPLY_AUTH_TO_ENDPOINTS.md](APPLY_AUTH_TO_ENDPOINTS.md)
-- **JWT.io**: https://jwt.io/
-- **python-jose**: https://python-jose.readthedocs.io/
-- **FastAPI Security**: https://fastapi.tiangolo.com/tutorial/security/
+- **API Gateway Authentication**: [api-gateway/src/middleware/authentication.js](../../api-gateway/src/middleware/authentication.js)
+- **FastAPI Security**: <https://fastapi.tiangolo.com/tutorial/security/>
 
 ## Soporte
 
 Para problemas o preguntas sobre la implementación, consulta:
+
 1. Esta documentación
-2. [JWT_CONFIG_EXPLAINED.md](JWT_CONFIG_EXPLAINED.md) - Explicación de variables
+2. [AUTHENTICATION_IMPLEMENTATION.md](AUTHENTICATION_IMPLEMENTATION.md) - Resumen de implementación
 3. [APPLY_AUTH_TO_ENDPOINTS.md](APPLY_AUTH_TO_ENDPOINTS.md) - Ejemplos de uso

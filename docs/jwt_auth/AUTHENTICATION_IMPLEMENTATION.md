@@ -1,50 +1,51 @@
-# Implementación de Autenticación JWT - Resumen
+# Implementación de Autenticación con API Gateway - Resumen
 
-## Cambios Realizados
+## Cambios Realizados (Actualización 2025-11-28)
 
-### 1. Estructura de Middleware Creada
+### 1. Migración a Autenticación Basada en Gateway
 
-**Archivos nuevos:**
-- `app/middleware/__init__.py` - Package initialization
-- `app/middleware/authentication.py` - Middleware JWT con doble modo (Gateway/Standalone)
+**Archivos modificados:**
 
-### 2. Configuración Actualizada
+- `app/middleware/authentication.py` - Modificado para leer headers del Gateway en lugar de validar JWT
 
-**Archivo: `app/core/config.py`**
-- ✅ Añadido `JWT_SECRET` para validación de tokens
+### 2. Eliminación de Dependencias JWT
 
-**Archivo: `.env.example`**
-- ✅ Añadida variable `JWT_SECRET` con documentación
-- Actualizado comentario de sección de seguridad
+**Ya NO se requiere:**
 
-**Archivo: `requirements.txt`**
-- ✅ `python-jose[cryptography]` ya estaba presente
-- Actualizado comentario indicando que es para JWT Authentication
+- ❌ `JWT_SECRET` en este microservicio (solo necesario en el Gateway)
+- ❌ `python-jose` podría eliminarse si no se usa en otro lugar
 
-### 3. Integración en Main Application
+### 3. Configuración Actualizada
 
 **Archivo: `main.py`**
-- ✅ Importado `verify_jwt_token` desde `app.middleware.authentication`
-- ✅ Registrado middleware con `app.middleware("http")(verify_jwt_token)`
-- Middleware se ejecuta después de CORS y antes de los routers
+
+- ✅ El middleware `verify_jwt_token` ahora lee headers del Gateway
+- ✅ Middleware se ejecuta después de CORS y antes de los routers
 
 ### 4. Documentación
 
-**Archivos creados:**
-- `docs/JWT_AUTHENTICATION.md` - Documentación completa de uso
-- `docs/AUTHENTICATION_IMPLEMENTATION.md` - Este archivo (resumen de implementación)
-- `app/endpoints/example_protected.py` - Ejemplos de uso (NO para producción)
+**Archivos actualizados:**
 
-## Características Implementadas
+- `docs/jwt_auth/JWT_AUTHENTICATION.md` - Actualizado con patrón Gateway
+- `docs/jwt_auth/AUTHENTICATION_IMPLEMENTATION.md` - Este archivo (resumen de implementación)
 
-**Modo Standalone** (Fallback)
-   - Valida tokens JWT directamente
-   - Soporta header `Authorization: Bearer <token>`
-   - Maneja errores específicos (expiración, token inválido)
+## Arquitectura Actual
+
+### API Gateway Pattern - Centralized Authentication
+
+1. **Cliente → API Gateway**: El cliente envía el token JWT en el header `Authorization`
+2. **API Gateway**: Valida el token JWT y añade headers con información del usuario
+3. **Gateway → Microservicio**: El Gateway reenvía la petición con headers adicionales:
+   - `x-gateway-authenticated`: `"true"`
+   - `x-user-id`: ID del usuario
+   - `x-user-email`: Email del usuario (opcional)
+   - `x-user-role`: Rol del usuario (opcional)
+4. **Microservicio**: Lee los headers y confía en el Gateway
 
 ### ✅ Rutas Abiertas
 
 Paths que NO requieren autenticación:
+
 - `/` - Root
 - `/docs` - Swagger UI
 - `/redoc` - ReDoc
@@ -59,6 +60,7 @@ Paths que NO requieren autenticación:
 ### ✅ Helpers para Endpoints
 
 **`get_current_user(request: Request)`**
+
 ```python
 @router.get("/endpoint")
 async def endpoint(user: dict = Depends(get_current_user)):
@@ -66,6 +68,7 @@ async def endpoint(user: dict = Depends(get_current_user)):
 ```
 
 **`require_role(allowed_roles: list[str])`**
+
 ```python
 @router.get("/admin")
 async def admin(user: dict = Depends(require_role(["admin"]))):
@@ -75,9 +78,10 @@ async def admin(user: dict = Depends(require_role(["admin"]))):
 ### ✅ Información del Usuario en Request
 
 El middleware añade `request.state.user` con:
-- `userId` - ID del usuario
-- `email` - Email del usuario
-- `role` - Rol (user, admin, etc.)
+
+- `userId` - ID del usuario (desde header `x-user-id`)
+- `email` - Email del usuario (desde header `x-user-email`)
+- `role` - Rol (desde header `x-user-role`, default: "user")
 
 ### ✅ Logging Comprehensivo
 
