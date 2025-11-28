@@ -140,17 +140,60 @@ class WidgetService:
         except Exception as e:
             raise DatabaseException(f"Failed to retrieve widget: {str(e)}")
 
-    async def create(self, widget_data: WidgetCreate) -> dict:
+    async def verify_dashboard_ownership(self, dashboard_id: str, user_id: str, is_admin: bool = False) -> dict:
+        """
+        Verify that a user owns or has access to a dashboard
+
+        Args:
+            dashboard_id: Dashboard ID to verify
+            user_id: User ID to check ownership
+            is_admin: Whether the user is an admin (admins can access all dashboards)
+
+        Returns:
+            Dashboard document if user has access
+
+        Raises:
+            NotFoundException: If dashboard not found
+            BadRequestException: If user doesn't have access to the dashboard
+        """
+        try:
+            dashboard_oid = ObjectId(dashboard_id)
+        except InvalidId:
+            raise BadRequestException(f"Invalid dashboard ID format: {dashboard_id}")
+
+        dashboard = await self.db.dashboards.find_one({"_id": dashboard_oid})
+        if not dashboard:
+            raise NotFoundException(resource="Dashboard", resource_id=dashboard_id)
+
+        # Verificar que el usuario es el dueño o es admin
+        if not is_admin and dashboard.get("owner_id") != user_id:
+            raise BadRequestException("You don't have access to this dashboard")
+
+        return dashboard
+
+    async def create(self, widget_data: WidgetCreate, user_id: str, is_admin: bool = False) -> dict:
         """
         Create a new widget
 
         Args:
             widget_data: Widget creation data
+            user_id: ID of the user creating the widget
+            is_admin: Whether the user is an admin
 
         Returns:
             Created widget document
+
+        Raises:
+            BadRequestException: If user doesn't own the dashboard
         """
         widget_dict = widget_data.model_dump(by_alias=False)
+
+        # Verificar que el usuario tiene acceso al dashboard
+        await self.verify_dashboard_ownership(
+            widget_dict["dashboard_id"],
+            user_id,
+            is_admin
+        )
 
         try:
             widget_dict["created_at"] = datetime.utcnow()
@@ -163,19 +206,22 @@ class WidgetService:
         except Exception as e:
             raise DatabaseException(f"Failed to create widget: {str(e)}")
 
-    async def update(self, widget_id: str, widget_data: WidgetUpdate) -> dict:
+    async def update(self, widget_id: str, widget_data: WidgetUpdate, user_id: str, is_admin: bool = False) -> dict:
         """
         Update an existing widget
 
         Args:
             widget_id: Widget identifier
             widget_data: Widget update data
+            user_id: ID of the user updating the widget
+            is_admin: Whether the user is an admin
 
         Returns:
             Updated widget document
 
         Raises:
             NotFoundException: If widget not found
+            BadRequestException: If user doesn't own the dashboard
         """
         object_id = self.validate_object_id(widget_id)
 
@@ -183,6 +229,13 @@ class WidgetService:
         existing_widget = await self.collection.find_one({"_id": object_id})
         if not existing_widget:
             raise NotFoundException(resource="Widget", resource_id=widget_id)
+
+        # Verificar que el usuario tiene acceso al dashboard del widget
+        await self.verify_dashboard_ownership(
+            existing_widget["dashboard_id"],
+            user_id,
+            is_admin
+        )
 
         try:
             # Prepare update data
@@ -202,18 +255,21 @@ class WidgetService:
         except Exception as e:
             raise DatabaseException(f"Failed to update widget: {str(e)}")
 
-    async def delete(self, widget_id: str) -> dict:
+    async def delete(self, widget_id: str, user_id: str, is_admin: bool = False) -> dict:
         """
         Delete a widget
 
         Args:
             widget_id: Widget identifier
+            user_id: ID of the user deleting the widget
+            is_admin: Whether the user is an admin
 
         Returns:
             Success message
 
         Raises:
             NotFoundException: If widget not found
+            BadRequestException: If user doesn't own the dashboard
         """
         object_id = self.validate_object_id(widget_id)
 
@@ -221,6 +277,13 @@ class WidgetService:
         existing_widget = await self.collection.find_one({"_id": object_id})
         if not existing_widget:
             raise NotFoundException(resource="Widget", resource_id=widget_id)
+
+        # Verificar que el usuario tiene acceso al dashboard del widget
+        await self.verify_dashboard_ownership(
+            existing_widget["dashboard_id"],
+            user_id,
+            is_admin
+        )
 
         try:
             await self.collection.delete_one({"_id": object_id})
@@ -246,14 +309,22 @@ class WidgetService:
         except Exception as e:
             raise DatabaseException(f"Failed to count widgets: {str(e)}")
 
-    async def get_by_dashboard(self, dashboard_id: str) -> List[dict]:
+    async def get_by_dashboard(self, dashboard_id: str, user_id: str, is_admin: bool = False) -> List[dict]:
         """
         Get all widgets for a specific dashboard, sorted by position
 
         Args:
             dashboard_id: Dashboard identifier
+            user_id: ID of the user requesting widgets
+            is_admin: Whether the user is an admin
 
         Returns:
             List of widgets sorted by position
+
+        Raises:
+            BadRequestException: If user doesn't own the dashboard
         """
+        # Verificar que el usuario tiene acceso al dashboard
+        await self.verify_dashboard_ownership(dashboard_id, user_id, is_admin)
+
         return await self.get_all(dashboard_id=dashboard_id, skip=0, limit=1000)
