@@ -29,6 +29,7 @@ class PyObjectId(ObjectId):
 class Dashboard(BaseModel):
     id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
     owner_id: str = Field(..., alias="ownerId")
+    beat_id: Optional[str] = Field(None, alias="beatId")
     name: str
     created_at: datetime = Field(default_factory=datetime.utcnow, alias="createdAt")
     updated_at: Optional[datetime] = Field(default=None, alias="updatedAt")

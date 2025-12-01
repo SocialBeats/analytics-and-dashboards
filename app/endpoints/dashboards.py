@@ -62,10 +62,14 @@ async def create_dashboard(
 
     El owner_id se obtiene automáticamente del usuario autenticado,
     NO se envía desde el frontend.
+
+    Se verifica que el usuario tenga acceso al beat especificado.
     """
     await service.ensure_indexes()
-    # Pasar el userId del usuario autenticado al servicio
-    return await service.create(dashboard, owner_id=user["userId"])
+    user_roles = user.get("roles", [])
+    is_admin = "admin" in user_roles
+    # Pasar el userId del usuario autenticado y is_admin al servicio
+    return await service.create(dashboard, owner_id=user["userId"], is_admin=is_admin)
 
 
 @router.put("/analytics/dashboards/{dashboard_id}", response_model=DashboardResponse)
