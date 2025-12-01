@@ -6,6 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.core.exceptions import NotFoundException, BadRequestException, DatabaseException
 from app.schemas.dashboard import DashboardCreate, DashboardUpdate
+from app.utils.beat_ownership import verify_beat_ownership
 
 
 class DashboardService:
@@ -17,6 +18,7 @@ class DashboardService:
         try:
             await self.collection.create_index("name", unique=True)
             await self.collection.create_index("owner_id")
+            await self.collection.create_index("beat_id")
         except Exception as e:
             raise DatabaseException(f"Failed to create indexes: {str(e)}")
 
@@ -26,12 +28,14 @@ class DashboardService:
             initial = [
                 {
                     "owner_id": "system",
+                    "beat_id": "system_beat_1",
                     "name": "General",
                     "created_at": datetime.utcnow(),
                     "updated_at": None
                 },
                 {
                     "owner_id": "system",
+                    "beat_id": "system_beat_2",
                     "name": "Ventas",
                     "created_at": datetime.utcnow(),
                     "updated_at": None
@@ -95,20 +99,34 @@ class DashboardService:
         except Exception as e:
             raise DatabaseException(f"Failed to retrieve dashboard: {str(e)}")
 
-    async def create(self, data: DashboardCreate, owner_id: str) -> dict:
+    async def create(self, data: DashboardCreate, owner_id: str, is_admin: bool = False) -> dict:
         """
         Create a new dashboard
 
         Args:
             data: Dashboard creation data from request body
             owner_id: ID of the user creating the dashboard (from authentication)
+            is_admin: Whether the user is an admin
 
         Returns:
             Created dashboard document
+
+        Raises:
+            NotFoundException: If beat not found
+            BadRequestException: If user doesn't own the beat
         """
         payload = data.model_dump(by_alias=False)
+
+        # Verificar que el usuario tiene acceso al beat
+        await verify_beat_ownership(
+            payload.get("beat_id"),
+            owner_id,
+            is_admin
+        )
+
         doc = {
             "owner_id": owner_id,  # Viene del usuario autenticado
+            "beat_id": payload.get("beat_id"),
             "name": payload.get("name"),
             "created_at": datetime.utcnow(),
             "updated_at": None

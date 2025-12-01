@@ -5,16 +5,19 @@ from datetime import datetime
 class DashboardCreate(BaseModel):
     # owner_id NO se envía desde el frontend, se obtiene del usuario autenticado
     name: str
+    beat_id: str = Field(..., alias="beatId")
     model_config = ConfigDict(populate_by_name=True)
 
 class DashboardUpdate(BaseModel):
     # owner_id NO se puede actualizar, es inmutable
+    # beat_id NO se puede actualizar, es inmutable
     name: Optional[str] = None
     model_config = ConfigDict(populate_by_name=True)
 
 class DashboardResponse(BaseModel):
     id: str
     owner_id: str = Field(..., alias="ownerId")
+    beat_id: str = Field(..., alias="beatId")
     name: str
     created_at: datetime = Field(..., alias="createdAt")
     updated_at: Optional[datetime] = Field(None, alias="updatedAt")
