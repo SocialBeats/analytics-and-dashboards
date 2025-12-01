@@ -54,7 +54,7 @@ async def verify_beat_ownership(beat_id: str, user_id: str, is_admin: bool = Fal
             beat_data = response.json()
 
             # Verificar que el usuario es el dueño del beat
-            beat_owner_id = beat_data.get("ownerId") or beat_data.get("owner_id")
+            beat_owner_id = beat_data.get("ownerId") or beat_data.get("owner_id") or beat_data.get("userId") or beat_data.get("user_id")
             if not beat_owner_id:
                 logger.error(f"Beat {beat_id} doesn't have ownerId field: {beat_data}")
                 raise DatabaseException("Beat data doesn't contain owner information")
