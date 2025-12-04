@@ -36,9 +36,9 @@ services:
   # MongoDB Database
   mongodb:
     image: mongo:7.0
-    container_name: mongodb
+    container_name: mongodb-analytics
     ports:
-      - "27017:27017"
+      - "27019:27017"
     environment:
       - MONGO_INITDB_DATABASE=fastapi_template
     volumes:
@@ -59,7 +59,7 @@ services:
     image: redis:7-alpine
     container_name: analytics-redis
     ports:
-      - "6379:6379"
+      - "6382:6379"
     networks:
       - app-network
       - socialbeats-network
