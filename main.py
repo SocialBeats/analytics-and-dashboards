@@ -19,6 +19,7 @@ from app.middleware.authentication import verify_jwt_token
 from app.middleware.rate_limiter import limiter, init_redis, close_redis, rate_limit_handler
 from slowapi.errors import RateLimitExceeded
 from app.middleware.circuit_breaker import circuit_breaker_middleware
+from app.services.kafka_consumer import consumer, producer, kafka_service
 
 
 @asynccontextmanager
@@ -28,12 +29,14 @@ async def lifespan(app: FastAPI):
     try:
         await database.connect()
         await init_redis()  # Initialize Redis for rate limiting
+        await kafka_service.start_kafka_consumer()  # Initialize Kafka consumer
         logger.info("Application startup complete")
     except Exception as e:
         logger.error(f"Failed to start application: {str(e)}")
         raise
     yield
     logger.info("Shutting down application")
+    await kafka_service.stop()  # Stop Kafka connections
     await close_redis()  # Close Redis connection
     await database.disconnect()
     logger.info("Application shutdown complete")

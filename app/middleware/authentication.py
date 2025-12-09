@@ -14,6 +14,7 @@ OPEN_PATHS_EXACT = [
     "/docs",
     "/redoc",
     "/openapi.json",
+    "/api/v1/kafka/health",
     "/api/v1/analytics/health",
     "/",
 ]
