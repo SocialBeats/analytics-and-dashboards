@@ -19,6 +19,7 @@ services:
       - LOG_LEVEL=INFO
       - TEMP_AUDIO_DIR=temp_audio
       - MAX_UPLOAD_SIZE=104857600
+      - BEATS_SERVICE_URL=http://beats-upload:3005
     depends_on:
       mongodb:
         condition: service_healthy
