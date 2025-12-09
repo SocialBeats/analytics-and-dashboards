@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int = Field(default=100 * 1024 * 1024)  # 100MB
 
     # Microservices URLs
-    BEATS_SERVICE_URL: str = Field(default="http://localhost:3002")  # URL del microservicio de beats
+    BEATS_SERVICE_URL: str = Field(default="http://localhost:3005")  # URL del microservicio de beats
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -9,8 +9,8 @@ from fastapi import Request, HTTPException, status
 from app.core.logging import logger
 
 
-# Open paths that don't require authentication
-OPEN_PATHS = [
+# Open paths that don't require authentication (exact matches or specific prefixes)
+OPEN_PATHS_EXACT = [
     "/docs",
     "/redoc",
     "/openapi.json",
@@ -40,36 +40,51 @@ async def verify_jwt_token(request: Request, call_next):
         HTTPException: Si la autenticación del Gateway falla
     """
 
-    # Skip authentication for open paths
-    if any(request.url.path.startswith(path) for path in OPEN_PATHS):
+    print(f"=== MIDDLEWARE DEBUG: Path: {request.url.path} ===")
+    print(f"=== Headers recibidos: {dict(request.headers)} ===")
+
+    # Skip authentication for open paths (exact match only)
+    if request.url.path in OPEN_PATHS_EXACT:
+        print(f"=== Skipping auth for open path: {request.url.path} ===")
         return await call_next(request)
 
     # Verify API version in path
     if request.url.path.startswith("/api/") and not request.url.path.startswith("/api/v"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You must specify the API version, e.g. /api/v1/..."
+            detail="You must specify the API version, e.g. /api/v1/...",
         )
 
     # Check if request comes from authenticated Gateway
     gateway_authenticated = request.headers.get("x-gateway-authenticated")
     user_id = request.headers.get("x-user-id")
-    roles_header = request.headers.get("x-user-roles")  # Array of roles as JSON string
+    roles_header = request.headers.get("x-roles")
+    user_username = request.headers.get("x-username")
     pricing_plan = request.headers.get("x-user-pricing-plan")
 
+    # Log all headers for debugging
+    logger.debug(f"All request headers: {dict(request.headers)}")
+    logger.debug(
+        f"Auth headers - gateway_authenticated: {gateway_authenticated}, user_id: {user_id}, roles: {roles_header}, username: {user_username}"
+    )
+
     if not gateway_authenticated or gateway_authenticated != "true":
-        logger.warn(f"Unauthenticated request to {request.url.path}: Missing x-gateway-authenticated header")
+        logger.warn(
+            f"Unauthenticated request to {request.url.path}: x-gateway-authenticated={gateway_authenticated}"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required. Request must come through API Gateway.",
+            detail=f"Authentication required. Request must come through API Gateway. (x-gateway-authenticated={gateway_authenticated})",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
     if not user_id:
-        logger.warn(f"Authenticated request to {request.url.path} missing x-user-id header")
+        logger.warn(
+            f"Authenticated request to {request.url.path} missing x-user-id header. gateway_authenticated={gateway_authenticated}"
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing user identification from Gateway",
+            detail=f"Missing user identification from Gateway. (gateway_authenticated={gateway_authenticated}, user_id={user_id})",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -88,6 +103,7 @@ async def verify_jwt_token(request: Request, call_next):
     request.state.user = {
         "userId": user_id,
         "roles": roles,
+        "username": user_username,
         "pricingPlan": pricing_plan,
     }
 
@@ -95,7 +111,7 @@ async def verify_jwt_token(request: Request, call_next):
     return await call_next(request)
 
 
-def get_current_user(request: Request) -> dict:
+async def get_current_user(request: Request) -> dict:
     """
     Dependency para obtener el usuario actual de un request autenticado
 
@@ -114,10 +130,7 @@ def get_current_user(request: Request) -> dict:
         HTTPException: Si no hay usuario autenticado
     """
     if not hasattr(request.state, "user"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated"
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
 
     return request.state.user
 
@@ -137,7 +150,15 @@ def require_role(allowed_roles: list[str]):
     Returns:
         Dependency function
     """
-    def role_checker(user: dict = get_current_user) -> dict:
+
+    def role_checker(request: Request) -> dict:
+        # Obtener el usuario del request.state
+        if not hasattr(request.state, "user"):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated"
+            )
+
+        user = request.state.user
         # roles es un array de strings (ej: ["admin", "user"])
         user_roles = user.get("roles", [])
 
@@ -152,7 +173,7 @@ def require_role(allowed_roles: list[str]):
             logger.warn(f"Access denied for user {user.get('userId')} with roles {user_roles}")
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Insufficient permissions. Required roles: {', '.join(allowed_roles)}"
+                detail=f"Insufficient permissions. Required roles: {', '.join(allowed_roles)}",
             )
         return user
 
