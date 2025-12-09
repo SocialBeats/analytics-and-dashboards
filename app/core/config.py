@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Server
     HOST: str = Field(default="0.0.0.0")
-    PORT: int = Field(default=8000)
+    PORT: int = Field(default=3003)
 
     # Database
     MONGODB_URL: str = Field(default="mongodb://localhost:27017")
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     MONGODB_MIN_CONNECTIONS: int = Field(default=1)
 
     # CORS
-    CORS_ORIGINS: List[str] = Field(default=["http://localhost:3000", "http://localhost:8000"])
+    CORS_ORIGINS: List[str] = Field(default=["http://localhost:3000", "http://localhost:3003"])
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
     CORS_ALLOW_METHODS: List[str] = Field(default=["*"])
     CORS_ALLOW_HEADERS: List[str] = Field(default=["*"])
@@ -36,10 +36,22 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = Field(default="INFO")
     LOG_FORMAT: str = Field(default="json")
 
-    # Security (optional)
-    SECRET_KEY: str = Field(default="your-secret-key-here-change-in-production")
-    ALGORITHM: str = Field(default="HS256")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30)
+    # Security & JWT Authentication (DEPRECATED)
+    # JWT_SECRET: Ya NO se requiere en este microservicio.
+    #             La autenticación se realiza en el API Gateway, que añade headers
+    #             con la información del usuario. Este microservicio confía en esos headers.
+    #             Mantenemos esta variable solo por compatibilidad, pero no se usa.
+    JWT_SECRET: str = Field(default="")
+
+    # Rate Limiting
+    REDIS_URL: str = Field(default="redis://localhost:6379")
+
+    # File Storage
+    TEMP_AUDIO_DIR: str = Field(default="temp_audio")
+    MAX_UPLOAD_SIZE: int = Field(default=100 * 1024 * 1024)  # 100MB
+
+    # Microservices URLs
+    BEATS_SERVICE_URL: str = Field(default="http://localhost:3005")  # URL del microservicio de beats
 
     model_config = SettingsConfigDict(
         env_file=".env",

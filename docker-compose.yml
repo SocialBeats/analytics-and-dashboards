@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # FastAPI Application
@@ -6,31 +6,40 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: fastapi_app
+    command: uvicorn main:app --host 0.0.0.0 --port 3003 --reload
+    container_name: analytics-service
     ports:
-      - "8000:8000"
+      - "3003:3003"
     environment:
       - MONGODB_URL=mongodb://mongodb:27017
       - MONGODB_DB_NAME=fastapi_template
+      - REDIS_URL=redis://redis:6379
       - ENVIRONMENT=development
       - DEBUG=true
       - LOG_LEVEL=INFO
+      - TEMP_AUDIO_DIR=temp_audio
+      - MAX_UPLOAD_SIZE=104857600
+      - BEATS_SERVICE_URL=http://beats-upload:3005
     depends_on:
       mongodb:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - app-network
+      - socialbeats-network
     restart: unless-stopped
     volumes:
       - ./app:/app/app
       - ./main.py:/app/main.py
+      - audio_temp:/app/temp_audio
 
   # MongoDB Database
   mongodb:
     image: mongo:7.0
-    container_name: mongodb
+    container_name: mongodb-analytics
     ports:
-      - "27017:27017"
+      - "27019:27017"
     environment:
       - MONGO_INITDB_DATABASE=fastapi_template
     volumes:
@@ -45,6 +54,25 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+
+  # Redis (Rate Limiting Storage)
+  redis:
+    image: redis:7-alpine
+    container_name: analytics-redis
+    ports:
+      - "6382:6379"
+    networks:
+      - app-network
+      - socialbeats-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    volumes:
+      - redis_data:/data
 
   # Mongo Express (MongoDB Web UI - optional, for development)
   mongo-express:
@@ -67,9 +95,15 @@ services:
 networks:
   app-network:
     driver: bridge
+  socialbeats-network:
+    external: true
 
 volumes:
   mongodb_data:
     driver: local
   mongodb_config:
+    driver: local
+  audio_temp:
+    driver: local
+  redis_data:
     driver: local
