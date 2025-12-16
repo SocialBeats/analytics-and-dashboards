@@ -1,6 +1,7 @@
 """
 Application configuration using Pydantic Settings
 """
+
 from typing import List
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -51,13 +52,19 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int = Field(default=100 * 1024 * 1024)  # 100MB
 
     # Microservices URLs
-    BEATS_SERVICE_URL: str = Field(default="http://localhost:3005")  # URL del microservicio de beats
+    BEATS_SERVICE_URL: str = Field(
+        default="http://localhost:3005"
+    )  # URL del microservicio de beats
+
+    # Kafka Configuration
+    KAFKA_BROKER: str = Field(default="localhost:9092")
+    ENABLE_KAFKA: bool = Field(default=True)
+    KAFKA_CONNECTION_MAX_RETRIES: int = Field(default=10)
+    KAFKA_CONNECTION_RETRY_DELAY: int = Field(default=3000)  # milliseconds
+    KAFKA_COOLDOWN: int = Field(default=30000)  # milliseconds
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=True,
-        extra="ignore"
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
     )
 
     @property
