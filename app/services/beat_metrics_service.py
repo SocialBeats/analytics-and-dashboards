@@ -40,8 +40,9 @@ class BeatMetricsService:
 
     @staticmethod
     def serialize(doc: dict) -> dict:
-        doc["id"] = str(doc["_id"])
-        doc.pop("_id", None)
+        if "_id" in doc:
+            doc["id"] = str(doc["_id"])
+            doc.pop("_id", None)
         return doc
 
     async def get_all(

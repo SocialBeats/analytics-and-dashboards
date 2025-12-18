@@ -48,9 +48,11 @@ class DashboardService:
 
     @staticmethod
     def validate_object_id(dashboard_id: str) -> ObjectId:
+        if dashboard_id is None or dashboard_id == "":
+            raise BadRequestException(f"Invalid dashboard ID format: {dashboard_id}")
         try:
             return ObjectId(dashboard_id)
-        except InvalidId:
+        except (InvalidId, TypeError):
             raise BadRequestException(f"Invalid dashboard ID format: {dashboard_id}")
 
     @staticmethod
