@@ -74,6 +74,7 @@ services:
     volumes:
       - ./app:/app/app
       - ./main.py:/app/main.py
+      - ./tests:/app/tests
       - audio_temp:/app/temp_audio
 
   # MongoDB Database
