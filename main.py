@@ -14,6 +14,7 @@ from app.endpoints import health
 from app.endpoints import dashboards
 from app.endpoints import widgets
 from app.endpoints import beat_metrics
+from app.endpoints import quotable
 from app.endpoints.examples import example_rate_limit
 from app.middleware.authentication import verify_jwt_token
 from app.middleware.rate_limiter import limiter, init_redis, close_redis, rate_limit_handler
@@ -73,6 +74,7 @@ app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(dashboards.router, prefix="/api/v1", tags=["dashboards"])
 app.include_router(widgets.router, prefix="/api/v1", tags=["widgets"])
 app.include_router(beat_metrics.router, prefix="/api/v1", tags=["beat_metrics"])
+app.include_router(quotable.router, prefix="/api/v1", tags=["quotable"])
 app.include_router(example_rate_limit.router, prefix="/api/v1", tags=["examples_rate_limit"])
 
 
