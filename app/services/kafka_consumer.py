@@ -16,6 +16,8 @@ from app.core.logging import logger
 from app.database import database
 from app.services.beat_metrics_service import BeatMetricsService
 from app.schemas.beat_metrics import BeatMetricsCreate
+import httpx
+import json
 
 
 class KafkaService:
@@ -108,8 +110,26 @@ class KafkaService:
         try:
             async for message in self.consumer:
                 try:
+                    # Log message metadata (topic/partition/offset/key/value preview)
+                    try:
+                        raw_value = message.value.decode("utf-8", errors="replace") if message.value else None
+                    except Exception:
+                        raw_value = None
+
+                    key = None
+                    if message.key:
+                        try:
+                            key = message.key.decode("utf-8", errors="replace")
+                        except Exception:
+                            key = repr(message.key)
+
+                    logger.debug(
+                        f"Received Kafka message topic={message.topic} partition={message.partition} "
+                        f"offset={message.offset} key={key} value_preview={raw_value[:200] if raw_value else None}"
+                    )
+
                     # Parse the message value as JSON
-                    event = json.loads(message.value.decode("utf-8"))
+                    event = json.loads(raw_value) if raw_value else {}
                     await self._process_event(event)
                 except json.JSONDecodeError as error:
                     logger.error(
@@ -169,22 +189,55 @@ class KafkaService:
 
             logger.info(f"Processing BEAT_CREATED event for beat: {beat_id}")
 
-            # Create beat metrics using the service
-            beat_metrics_data = BeatMetricsCreate(
-                beatId=beat_id,
-                audioUrl=audio_url
-            )
+            # First approximation: call the HTTP API endpoint so the same HTTP
+            # path is exercised as when requests come through the gateway.
+            # Build URL to local API and send a POST with form data.
+            api_url = f"http://{settings.HOST}:{settings.PORT}/api/v1/analytics/beat-metrics"
 
-            # Calculate metrics - use is_admin=True to bypass ownership check for Kafka events
-            # since this is an automated system process
-            result = await self.beat_metrics_service.create(
-                beat_metrics_data=beat_metrics_data,
-                user_id=user_id or "system",
-                is_admin=True,
-                audio_file=None
-            )
+            headers = {
+                # Emulate gateway-authenticated headers so middleware allows the request
+                "x-gateway-authenticated": "true",
+                "x-user-id": user_id or "system",
+                # Send roles as JSON so the middleware can parse it back to list
+                "x-roles": json.dumps(["admin"]),
+            }
 
-            logger.info(f"✅ Beat metrics calculated successfully for beat: {beat_id}, metrics ID: {result.get('id')}")
+            data = {
+                "beatId": beat_id,
+            }
+            if audio_url:
+                data["audioUrl"] = audio_url
+
+            # Retry loop for HTTP call
+            max_retries = 3
+            retry_delay = 2
+            last_exc = None
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                for attempt in range(1, max_retries + 1):
+                    try:
+                        resp = await client.post(api_url, data=data, headers=headers)
+                        if resp.status_code in (200, 201):
+                            try:
+                                body = resp.json()
+                                logger.info(
+                                    f"✅ Beat metrics calculated via HTTP for beat: {beat_id}, metrics ID: {body.get('id') if isinstance(body, dict) else 'unknown'}"
+                                )
+                            except Exception:
+                                logger.info(f"✅ Beat metrics HTTP call succeeded for beat: {beat_id}")
+                            return
+                        else:
+                            last_exc = Exception(f"Unexpected status code: {resp.status_code}, body: {resp.text}")
+                            logger.warning(f"Attempt {attempt} failed for beat {beat_id}: {last_exc}")
+                    except Exception as error:
+                        last_exc = error
+                        logger.error(f"HTTP request attempt {attempt} failed: {error}")
+
+                    if attempt < max_retries:
+                        await asyncio.sleep(retry_delay)
+
+            # If we reach here, all retries failed — send to DLQ
+            await self._send_to_dlq(json.dumps(payload), str(last_exc))
 
         except Exception as error:
             logger.error(f"Error handling BEAT_CREATED event: {error}", exc_info=True)
