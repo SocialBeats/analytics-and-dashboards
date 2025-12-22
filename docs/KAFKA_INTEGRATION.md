@@ -181,7 +181,7 @@ KAFKA_COOLDOWN=30000
 Para entornos Docker, usar el nombre del servicio:
 
 ```env
-KAFKA_BROKER="kafka:29092"
+KAFKA_BROKER="kafka:9092"
 ```
 
 ## 🎯 Uso del servicio Kafka
@@ -209,7 +209,7 @@ Para procesar eventos personalizados adicionales, agrega más casos en el métod
 async def _process_event(self, event: dict):
     """Process individual Kafka events"""
     event_type = event.get("type", "UNKNOWN")
-    
+
     if event_type == "BEAT_CREATED":
         await self._handle_beat_created(event.get("payload"))
     elif event_type == "METRIC_UPDATED":
@@ -370,24 +370,29 @@ docker-compose logs kafka
    ```
 
 3. **Configurar el microservicio `beats-upload`**:
+
    - Implementar publicación de eventos `BEAT_CREATED` al topic `beats-events`
    - Incluir `beatId`, `audioUrl` y `userId` en el payload
 
 4. **Testing del flujo completo**:
+
    - Subir un beat desde `beats-upload`
    - Verificar que el evento se publique a Kafka
    - Confirmar que `analytics-and-dashboards` consume el evento
    - Validar que las métricas se calculen y guarden correctamente
 
 5. **Implementar handlers adicionales** (opcional):
+
    - Agregar más tipos de eventos según necesidades del negocio
    - Ejemplo: `BEAT_DELETED`, `BEAT_UPDATED`, etc.
 
 6. **Monitoreo y DLQ**:
+
    - Monitorear el topic `analytics-dlq` para mensajes fallidos
    - Implementar dashboard o alertas para errores
 
 7. **Métricas y observabilidad**:
+
    - Implementar métricas de mensajes procesados/fallidos
    - Dashboard de salud de Kafka
    - Alertas en caso de desconexión prolongada
