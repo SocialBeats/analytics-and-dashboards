@@ -59,6 +59,10 @@ class KafkaService:
                     auto_offset_reset="earliest",
                     enable_auto_commit=True,
                     client_id="analytics-and-dashboards",
+                    # tuning to avoid too aggressive rebalances
+                    session_timeout_ms=getattr(settings, 'KAFKA_SESSION_TIMEOUT_MS', 30000),
+                    heartbeat_interval_ms=getattr(settings, 'KAFKA_HEARTBEAT_INTERVAL_MS', 10000),
+                    max_poll_interval_ms=getattr(settings, 'KAFKA_MAX_POLL_INTERVAL_MS', 300000),
                 )
 
                 # Initialize producer

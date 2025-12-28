@@ -15,6 +15,10 @@ from app.models.beat_metrics import CoreMetrics, ExtraMetrics
 from app.services.audio_analyzer import analyze_audio_file
 from app.utils.audio_file_handler import AudioFileHandler
 from app.utils.beat_ownership import verify_beat_ownership
+import httpx
+from app.core.config import settings
+from app.core.logging import logger
+import json
 
 
 class BeatMetricsService:
@@ -146,6 +150,42 @@ class BeatMetricsService:
                 raise DatabaseException("Failed to create BeatMetrics record")
 
             doc = await self.collection.find_one({"_id": result.inserted_id})
+
+            # After successfully creating beat metrics, inform the beats microservice
+            # so it can update the beat document with metrics.status = 'done'.
+            try:
+                beat_id = beat_metrics_data.beatId
+                metrics_payload = {
+                    "metrics": {
+                        "status": "done",
+                        "computedAt": datetime.utcnow().isoformat(),
+                        "data": {
+                            # Optionally include a reference to the metrics document
+                            "beatMetricsId": str(result.inserted_id)
+                        }
+                    }
+                }
+
+                beats_url = f"{settings.BEATS_SERVICE_URL}/api/v1/beats/{beat_id}"
+                headers = {
+                    "x-gateway-authenticated": "true",
+                    "x-user-id": user_id or "system",
+                    "x-roles": json.dumps(["admin"]),
+                }
+
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    try:
+                        resp = await client.put(beats_url, json=metrics_payload, headers=headers)
+                        if resp.status_code in (200, 201):
+                            logger.info(f"Marked beat {beat_id} metrics as done in beats service")
+                        else:
+                            logger.warning(f"Failed to mark beat metrics done for {beat_id}: {resp.status_code} - {resp.text}")
+                    except Exception as e:
+                        logger.error(f"Error calling beats service to mark metrics done for beat {beat_id}: {e}")
+            except Exception as e:
+                # Non-fatal: log and continue
+                logger.error(f"Unexpected error when notifying beats service: {e}")
+
             return self.serialize(doc)
 
         except (BadRequestException, AudioProcessingException):
@@ -229,7 +269,7 @@ class BeatMetricsService:
             user_id,
             is_admin
         )
-
+        
         try:
             result = await self.collection.delete_one({"_id": obj_id})
             if result.deleted_count == 0:

@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     KAFKA_CONNECTION_MAX_RETRIES: int = Field(default=10)
     KAFKA_CONNECTION_RETRY_DELAY: int = Field(default=3000)  # milliseconds
     KAFKA_COOLDOWN: int = Field(default=30000)  # milliseconds
+    # Kafka consumer tuning (milliseconds)
+    KAFKA_SESSION_TIMEOUT_MS: int = Field(default=30000)
+    KAFKA_HEARTBEAT_INTERVAL_MS: int = Field(default=10000)
+    KAFKA_MAX_POLL_INTERVAL_MS: int = Field(default=300000)
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
