@@ -53,6 +53,16 @@ services:
       - REDIS_URL=redis://redis:6379
       - BEATS_SERVICE_URL=http://beats-upload:3005
       - KAFKA_BROKER=kafka:9092
+      - ENABLE_KAFKA=true
+      - KAFKA_CONNECTION_MAX_RETRIES=10
+      - KAFKA_CONNECTION_RETRY_DELAY=3000
+      - KAFKA_COOLDOWN=30000
+      - AZURE_TRANSLATOR_KEY=${AZURE_TRANSLATOR_KEY}
+      - AZURE_TRANSLATOR_ENDPOINT=${AZURE_TRANSLATOR_ENDPOINT:-https://api.cognitive.microsofttranslator.com}
+      - AZURE_TRANSLATOR_REGION=${AZURE_TRANSLATOR_REGION:-westeurope}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3003}
+      - CORS_ALLOW_METHODS=${CORS_ALLOW_METHODS:-*}
+      - CORS_ALLOW_HEADERS=${CORS_ALLOW_HEADERS:-*}
     depends_on:
       mongodb:
         condition: service_healthy
