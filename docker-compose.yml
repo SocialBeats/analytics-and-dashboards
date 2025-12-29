@@ -45,21 +45,14 @@ services:
     container_name: analytics-service
     ports:
       - "3003:3003"
+    env_file:
+      - .env
     environment:
+      # Override .env values for Docker-specific settings
       - MONGODB_URL=mongodb://mongodb:27017
-      - MONGODB_DB_NAME=fastapi_template
       - REDIS_URL=redis://redis:6379
-      - ENVIRONMENT=development
-      - DEBUG=true
-      - LOG_LEVEL=INFO
-      - TEMP_AUDIO_DIR=temp_audio
-      - MAX_UPLOAD_SIZE=104857600
       - BEATS_SERVICE_URL=http://beats-upload:3005
       - KAFKA_BROKER=kafka:9092
-      - ENABLE_KAFKA=true
-      - KAFKA_CONNECTION_MAX_RETRIES=10
-      - KAFKA_CONNECTION_RETRY_DELAY=3000
-      - KAFKA_COOLDOWN=30000
     depends_on:
       mongodb:
         condition: service_healthy
