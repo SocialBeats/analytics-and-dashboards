@@ -1,6 +1,7 @@
 """
 Custom exceptions for the application
 """
+
 from fastapi import HTTPException, status
 
 
@@ -11,7 +12,7 @@ class BaseAPIException(HTTPException):
         self,
         status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail: str = "Internal server error",
-        headers: dict = None
+        headers: dict = None,
     ):
         super().__init__(status_code=status_code, detail=detail, headers=headers)
 
@@ -40,7 +41,7 @@ class UnauthorizedException(BaseAPIException):
         super().__init__(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=detail,
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
 
@@ -62,10 +63,7 @@ class DatabaseException(BaseAPIException):
     """Exception raised for database errors"""
 
     def __init__(self, detail: str = "Database operation failed"):
-        super().__init__(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=detail
-        )
+        super().__init__(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=detail)
 
 
 class ValidationException(BaseAPIException):
@@ -79,7 +77,13 @@ class AudioProcessingException(BaseAPIException):
     """Exception raised for audio processing errors"""
 
     def __init__(self, detail: str = "Audio processing failed"):
-        super().__init__(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=detail
-        )
+        super().__init__(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+
+
+class QuotaExceededException(BaseAPIException):
+    """Exception raised when API quota or rate limit is exceeded"""
+
+    def __init__(self, service: str = "Service", detail: str = None):
+        if detail is None:
+            detail = f"{service} quota exceeded. Please wait before trying again."
+        super().__init__(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=detail)

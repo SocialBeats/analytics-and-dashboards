@@ -2,8 +2,9 @@
 Application configuration using Pydantic Settings
 """
 
-from typing import List
-from pydantic import Field
+from typing import List, Union
+
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,10 +29,12 @@ class Settings(BaseSettings):
     MONGODB_MIN_CONNECTIONS: int = Field(default=1)
 
     # CORS
-    CORS_ORIGINS: List[str] = Field(default=["http://localhost:3000", "http://localhost:3003"])
+    CORS_ORIGINS: Union[str, List[str]] = Field(
+        default="http://localhost:3000,http://localhost:3003"
+    )
     CORS_ALLOW_CREDENTIALS: bool = Field(default=True)
-    CORS_ALLOW_METHODS: List[str] = Field(default=["*"])
-    CORS_ALLOW_HEADERS: List[str] = Field(default=["*"])
+    CORS_ALLOW_METHODS: Union[str, List[str]] = Field(default="*")
+    CORS_ALLOW_HEADERS: Union[str, List[str]] = Field(default="*")
 
     # Logging
     LOG_LEVEL: str = Field(default="INFO")
@@ -51,6 +54,11 @@ class Settings(BaseSettings):
     TEMP_AUDIO_DIR: str = Field(default="temp_audio")
     MAX_UPLOAD_SIZE: int = Field(default=100 * 1024 * 1024)  # 100MB
 
+    # Azure Translator
+    AZURE_TRANSLATOR_KEY: str = Field(default="")
+    AZURE_TRANSLATOR_ENDPOINT: str = Field(default="https://api.cognitive.microsofttranslator.com")
+    AZURE_TRANSLATOR_REGION: str = Field(default="westeurope")
+
     # Microservices URLs
     BEATS_SERVICE_URL: str = Field(
         default="http://localhost:3005"
@@ -68,8 +76,25 @@ class Settings(BaseSettings):
     KAFKA_MAX_POLL_INTERVAL_MS: int = Field(default=300000)
 
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        extra="ignore",
     )
+
+    @field_validator("CORS_ORIGINS", "CORS_ALLOW_METHODS", "CORS_ALLOW_HEADERS", mode="before")
+    @classmethod
+    def split_str_to_list(cls, v: Union[str, List[str]]) -> List[str]:
+        """Convert comma-separated string to list"""
+        print(f"[DEBUG] Validating CORS field - Type: {type(v)}, Value: {v}")
+        if isinstance(v, str):
+            # Remove any surrounding quotes
+            v = v.strip().strip('"').strip("'")
+            result = [item.strip() for item in v.split(",") if item.strip()]
+            print(f"[DEBUG] Converted to list: {result}")
+            return result
+        print(f"[DEBUG] Already a list, returning as-is")
+        return v
 
     @property
     def is_production(self) -> bool:
