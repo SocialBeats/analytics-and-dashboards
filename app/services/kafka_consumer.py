@@ -4,7 +4,7 @@ Kafka Consumer Service for analytics-and-dashboards microservice
 
 import asyncio
 import json
-from typing import Optional
+from typing import Optional, Set
 from datetime import datetime
 
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
@@ -20,6 +20,48 @@ import httpx
 import json
 
 
+class EventBroadcaster:
+    """Manages SSE connections and broadcasts events to connected clients"""
+    
+    def __init__(self):
+        self.connections: Set[asyncio.Queue] = set()
+    
+    def add_connection(self, queue: asyncio.Queue):
+        """Add a new SSE connection queue"""
+        self.connections.add(queue)
+        logger.debug(f"SSE connection added. Total connections: {len(self.connections)}")
+    
+    def remove_connection(self, queue: asyncio.Queue):
+        """Remove an SSE connection queue"""
+        self.connections.discard(queue)
+        logger.debug(f"SSE connection removed. Total connections: {len(self.connections)}")
+    
+    async def broadcast(self, event_type: str, data: dict):
+        """Broadcast event to all connected clients"""
+        if not self.connections:
+            return
+        
+        message = {
+            "type": event_type,
+            "data": data,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        # Send to all connections, remove dead ones
+        dead_connections = set()
+        for queue in self.connections:
+            try:
+                queue.put_nowait(message)
+            except:
+                dead_connections.add(queue)
+        
+        # Clean up dead connections
+        for queue in dead_connections:
+            self.remove_connection(queue)
+        
+        logger.debug(f"Broadcasted {event_type} to {len(self.connections)} clients")
+
+
 class KafkaService:
     """Service for managing Kafka producer and consumer connections"""
 
@@ -30,6 +72,7 @@ class KafkaService:
         self.is_connected: bool = False
         self._consumer_task: Optional[asyncio.Task] = None
         self.beat_metrics_service: Optional[BeatMetricsService] = None
+        self.broadcaster: EventBroadcaster = EventBroadcaster()
 
     async def start_kafka_consumer(self):
         """
@@ -150,7 +193,7 @@ class KafkaService:
     async def _process_event(self, event: dict):
         """
         Process individual Kafka events.
-        Handles BEAT_CREATED events to calculate beat metrics automatically.
+        Handles BEAT_ANALYTICS events to calculate beat metrics automatically.
 
         Args:
             event: Parsed event dictionary with 'type' and 'payload' fields
@@ -160,17 +203,17 @@ class KafkaService:
         # Log the event for debugging
         logger.debug(f"Processing event type: {event_type}")
 
-        # Process BEAT_CREATED event
-        if event_type == "BEAT_CREATED":
-            await self._handle_beat_created(event.get("payload"))
+        # Process BEAT_ANALYTICS event
+        if event_type == "BEAT_ANALYTICS":
+            await self._handle_beat_analytics(event.get("payload"))
         else:
             logger.info(f"Unhandled event type: {event_type}")
 
         logger.debug(f"Event {event_type} processed")
 
-    async def _handle_beat_created(self, payload: dict):
+    async def _handle_beat_analytics(self, payload: dict):
         """
-        Handle BEAT_CREATED event by calculating beat metrics.
+        Handle BEAT_ANALYTICS event by calculating beat metrics.
 
         Expected payload structure:
         {
@@ -188,10 +231,10 @@ class KafkaService:
             user_id = payload.get("userId")
 
             if not beat_id or not audio_url:
-                logger.error(f"Invalid BEAT_CREATED payload: missing beatId or audioUrl. Payload: {payload}")
+                logger.error(f"Invalid BEAT_ANALYTICS payload: missing beatId or audioUrl. Payload: {payload}")
                 return
 
-            logger.info(f"Processing BEAT_CREATED event for beat: {beat_id}")
+            logger.info(f"Processing BEAT_ANALYTICS event for beat: {beat_id}")
 
             # First approximation: call the HTTP API endpoint so the same HTTP
             # path is exercised as when requests come through the gateway.

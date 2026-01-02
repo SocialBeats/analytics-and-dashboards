@@ -16,6 +16,8 @@ OPEN_PATHS_EXACT = [
     "/openapi.json",
     "/api/v1/kafka/health",
     "/api/v1/analytics/health",
+    "/api/v1/analytics/metrics-events",  # SSE endpoint for real-time metrics
+    "/api/v1/analytics/beat-metrics-status",  # Metrics status endpoint (used by SSE)
     "/",
 ]
 

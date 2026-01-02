@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.core.logging import logger
 from app.database import database
-from app.endpoints import beat_metrics, dashboards, health, quotable, translator, widgets
+from app.endpoints import beat_metrics, dashboards, health, quotable, translator, widgets, events
 from app.endpoints.examples import example_rate_limit
 from app.middleware.authentication import verify_jwt_token
 from app.middleware.circuit_breaker import circuit_breaker_middleware
@@ -72,6 +72,7 @@ app.include_router(widgets.router, prefix="/api/v1", tags=["widgets"])
 app.include_router(beat_metrics.router, prefix="/api/v1", tags=["beat_metrics"])
 app.include_router(quotable.router, prefix="/api/v1", tags=["quotable"])
 app.include_router(translator.router, prefix="/api/v1", tags=["translator"])
+app.include_router(events.router, prefix="/api/v1/analytics", tags=["events"])
 app.include_router(example_rate_limit.router, prefix="/api/v1", tags=["examples_rate_limit"])
 
 
