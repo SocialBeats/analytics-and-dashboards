@@ -121,16 +121,25 @@ class DashboardService:
 
         Raises:
             NotFoundException: If beat not found
-            BadRequestException: If user doesn't own the beat
+            BadRequestException: If user doesn't own the beat or beat already has a dashboard
         """
         payload = data.model_dump(by_alias=False)
+        beat_id = payload.get("beat_id")
 
         # Verificar que el usuario tiene acceso al beat
-        await verify_beat_ownership(payload.get("beat_id"), owner_id, is_admin)
+        await verify_beat_ownership(beat_id, owner_id, is_admin)
+
+        # Verificar que el beat no tenga ya un dashboard
+        existing = await self.collection.find_one({"beat_id": beat_id, "owner_id": owner_id})
+        if existing:
+            raise BadRequestException(
+                f"Ya existe un dashboard para este beat. "
+                f"No puedes crear múltiples dashboards para el mismo beat."
+            )
 
         doc = {
             "owner_id": owner_id,  # Viene del usuario autenticado
-            "beat_id": payload.get("beat_id"),
+            "beat_id": beat_id,
             "name": payload.get("name"),
             "created_at": datetime.utcnow(),
             "updated_at": None,
