@@ -143,3 +143,37 @@ async def delete_beat_metrics(
     user_roles = user.get("roles", [])
     is_admin = "admin" in user_roles
     return await service.delete(beat_metrics_id, user_id=user["userId"], is_admin=is_admin)
+
+
+@router.get(
+    "/analytics/beat-metrics-status",
+    summary="Get metrics calculation status",
+    description="Get the status of metrics calculation for one or more beats (calculating/completed/failed). No auth required.",
+)
+async def get_metrics_status(
+    beatId: Optional[str] = Query(None, description="Single beat ID to check status"),
+    beatIds: Optional[str] = Query(None, description="Comma-separated list of beat IDs for batch check"),
+    service: BeatMetricsService = Depends(get_beat_metrics_service)
+):
+    """
+    Get metrics calculation status for beats.
+    
+    Query options:
+    - beatId: Get status for a single beat
+    - beatIds: Get status for multiple beats (comma-separated)
+    
+    Returns status: 'calculating' | 'completed' | 'failed'
+    """
+    await service.ensure_indexes()
+    
+    if beatIds:
+        # Batch request
+        beat_id_list = [bid.strip() for bid in beatIds.split(",") if bid.strip()]
+        statuses = await service.get_metrics_status_batch(beat_id_list)
+        return {"success": True, "data": statuses}
+    elif beatId:
+        # Single request
+        status = await service.get_metrics_status(beatId)
+        return {"success": True, "data": status}
+    else:
+        return {"success": False, "error": "Either beatId or beatIds parameter is required"}
