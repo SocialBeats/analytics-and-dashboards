@@ -1,10 +1,16 @@
-from typing import List
 from datetime import datetime
+from typing import List
+
 from bson import ObjectId
 from bson.errors import InvalidId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from app.core.exceptions import NotFoundException, BadRequestException, DatabaseException
+import httpx
+
+from app.core.config import settings
+from app.core.logging import logger
+
+from app.core.exceptions import BadRequestException, DatabaseException, NotFoundException
 from app.schemas.dashboard import DashboardCreate, DashboardUpdate
 from app.utils.beat_ownership import verify_beat_ownership
 
@@ -31,15 +37,15 @@ class DashboardService:
                     "beat_id": "system_beat_1",
                     "name": "General",
                     "created_at": datetime.utcnow(),
-                    "updated_at": None
+                    "updated_at": None,
                 },
                 {
                     "owner_id": "system",
                     "beat_id": "system_beat_2",
                     "name": "Ventas",
                     "created_at": datetime.utcnow(),
-                    "updated_at": None
-                }
+                    "updated_at": None,
+                },
             ]
             try:
                 await self.collection.insert_many(initial)
@@ -120,18 +126,14 @@ class DashboardService:
         payload = data.model_dump(by_alias=False)
 
         # Verificar que el usuario tiene acceso al beat
-        await verify_beat_ownership(
-            payload.get("beat_id"),
-            owner_id,
-            is_admin
-        )
+        await verify_beat_ownership(payload.get("beat_id"), owner_id, is_admin)
 
         doc = {
             "owner_id": owner_id,  # Viene del usuario autenticado
             "beat_id": payload.get("beat_id"),
             "name": payload.get("name"),
             "created_at": datetime.utcnow(),
-            "updated_at": None
+            "updated_at": None,
         }
         try:
             result = await self.collection.insert_one(doc)
@@ -142,7 +144,9 @@ class DashboardService:
                 raise BadRequestException("Dashboard name must be unique")
             raise DatabaseException(f"Failed to create dashboard: {str(e)}")
 
-    async def update(self, dashboard_id: str, data: DashboardUpdate, user_id: str, is_admin: bool = False) -> dict:
+    async def update(
+        self, dashboard_id: str, data: DashboardUpdate, user_id: str, is_admin: bool = False
+    ) -> dict:
         """
         Update a dashboard
 
@@ -218,3 +222,89 @@ class DashboardService:
             return await self.collection.count_documents({})
         except Exception as e:
             raise DatabaseException(f"Failed to count dashboards: {str(e)}")
+
+    async def delete_with_beat(
+        self, dashboard_id: str, user_id: str, beat_id: str, is_admin: bool = False
+    ) -> dict:
+        """
+        Delete a dashboard and its associated beat
+
+        Args:
+            dashboard_id: ID of the dashboard to delete
+            user_id: ID of the user performing the deletion
+            beat_id: ID of the beat associated with the dashboard
+            is_admin: Whether the user is an admin (can delete any dashboard)
+
+        Returns:
+            Success message
+
+        Raises:
+            NotFoundException: If dashboard not found
+            BadRequestException: If user doesn't own the dashboard
+        """
+
+        await verify_beat_ownership(beat_id, user_id, is_admin)
+
+        oid = self.validate_object_id(dashboard_id)
+        existing = await self.collection.find_one({"_id": oid})
+        if not existing:
+            raise NotFoundException(resource="Dashboard", resource_id=dashboard_id)
+
+        # Verificar que el usuario es el dueño o es admin
+        if not is_admin and existing.get("owner_id") != user_id:
+            raise BadRequestException("You can only delete your own dashboards")
+
+        try:
+            # Primero eliminar el dashboard
+            await self.collection.delete_one({"_id": oid})
+
+            try:
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    logger.info(f"Deleting beat {beat_id} associated with dashboard {dashboard_id}")
+
+                    response = await client.delete(
+                        f"{settings.BEATS_SERVICE_URL}/api/v1/beats/{beat_id}",
+                        headers={
+                            "x-gateway-authenticated": "true",
+                            "x-user-id": user_id,
+                        },
+                    )
+
+                    logger.info(f"Beat deletion response: status={response.status_code}")
+
+                    if response.status_code != 200:
+                        logger.error(
+                            f"Failed to delete beat {beat_id}: {response.status_code} - {response.text}"
+                        )
+                        # No lanzamos excepción para que el dashboard siga eliminado
+                        # pero informamos del error
+                        return {
+                            "message": "Dashboard deleted successfully, but failed to delete associated beat",
+                            "id": dashboard_id,
+                            "beat_deletion_error": f"Beat service returned status {response.status_code}",
+                        }
+
+                    logger.info(f"Beat {beat_id} deleted successfully")
+                    return {
+                        "message": "Dashboard and beat deleted successfully",
+                        "id": dashboard_id,
+                        "beat_id": beat_id,
+                    }
+
+            except httpx.TimeoutException:
+                logger.error(f"Timeout deleting beat {beat_id}")
+                return {
+                    "message": "Dashboard deleted successfully, but beat deletion timed out",
+                    "id": dashboard_id,
+                    "beat_deletion_error": "Timeout",
+                }
+            except httpx.RequestError as e:
+                logger.error(f"Failed to connect to beats service: {str(e)}")
+                return {
+                    "message": "Dashboard deleted successfully, but failed to connect to beats service",
+                    "id": dashboard_id,
+                    "beat_deletion_error": str(e),
+                }
+
+        except Exception as e:
+            raise DatabaseException(f"Failed to delete dashboard: {str(e)}")

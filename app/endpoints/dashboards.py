@@ -1,11 +1,12 @@
 from typing import List
+
 from fastapi import APIRouter, Depends, Query, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.database.config import get_db
+from app.middleware.authentication import get_current_user
 from app.schemas.dashboard import DashboardCreate, DashboardResponse, DashboardUpdate
 from app.services.dashboard_service import DashboardService
-from app.middleware.authentication import get_current_user
 
 router = APIRouter()
 
@@ -19,7 +20,7 @@ async def list_dashboards(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     user: dict = Depends(get_current_user),
-    service: DashboardService = Depends(get_dashboard_service)
+    service: DashboardService = Depends(get_dashboard_service),
 ):
     """
     List dashboards
@@ -45,17 +46,19 @@ async def list_dashboards(
 async def get_dashboard(
     dashboard_id: str,
     user: dict = Depends(get_current_user),
-    service: DashboardService = Depends(get_dashboard_service)
+    service: DashboardService = Depends(get_dashboard_service),
 ):
     await service.ensure_indexes()
     return await service.get_by_id(dashboard_id)
 
 
-@router.post("/analytics/dashboards", response_model=DashboardResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/analytics/dashboards", response_model=DashboardResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_dashboard(
     dashboard: DashboardCreate,
     user: dict = Depends(get_current_user),
-    service: DashboardService = Depends(get_dashboard_service)
+    service: DashboardService = Depends(get_dashboard_service),
 ):
     """
     Create a new dashboard
@@ -77,7 +80,7 @@ async def update_dashboard(
     dashboard_id: str,
     dashboard: DashboardUpdate,
     user: dict = Depends(get_current_user),
-    service: DashboardService = Depends(get_dashboard_service)
+    service: DashboardService = Depends(get_dashboard_service),
 ):
     """
     Update a dashboard
@@ -97,7 +100,7 @@ async def update_dashboard(
 async def delete_dashboard(
     dashboard_id: str,
     user: dict = Depends(get_current_user),
-    service: DashboardService = Depends(get_dashboard_service)
+    service: DashboardService = Depends(get_dashboard_service),
 ):
     """
     Delete a dashboard
@@ -111,3 +114,28 @@ async def delete_dashboard(
     user_roles = user.get("roles", [])
     is_admin = "admin" in user_roles
     return await service.delete(dashboard_id, user_id=user["userId"], is_admin=is_admin)
+
+
+@router.delete(
+    "/analytics/dashboards/{dashboard_id}/withbeat/{beat_id}", status_code=status.HTTP_200_OK
+)
+async def delete_dashboard_with_beat(
+    dashboard_id: str,
+    beat_id: str,
+    user: dict = Depends(get_current_user),
+    service: DashboardService = Depends(get_dashboard_service),
+):
+    """
+    Delete a dashboard and its associated beat
+
+    - Usuarios regulares: Solo pueden eliminar sus propios dashboards y beats
+    - Admins: Pueden eliminar cualquier dashboard y beat
+
+    La validación de permisos se hace automáticamente.
+    """
+    await service.ensure_indexes()
+    user_roles = user.get("roles", [])
+    is_admin = "admin" in user_roles
+    return await service.delete_with_beat(
+        dashboard_id, user_id=user["userId"], beat_id=beat_id, is_admin=is_admin
+    )
