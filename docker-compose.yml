@@ -12,6 +12,7 @@ services:
       - "2183:2181"
     networks:
       - app-network
+      - socialbeats-network
     restart: unless-stopped
 
   # Kafka Broker
@@ -63,6 +64,9 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3003}
       - CORS_ALLOW_METHODS=${CORS_ALLOW_METHODS:-*}
       - CORS_ALLOW_HEADERS=${CORS_ALLOW_HEADERS:-*}
+      - SPACE_API_KEY=${SPACE_API_KEY}
+      - ENABLE_PRICING=${ENABLE_PRICING}
+      - SPACE_URL=${SPACE_URL}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -98,6 +102,7 @@ services:
       - mongodb_config:/data/configdb
     networks:
       - app-network
+      - socialbeats-network
     restart: unless-stopped
     healthcheck:
       test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
