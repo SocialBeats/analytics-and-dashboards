@@ -1,18 +1,17 @@
 from datetime import datetime
 from typing import List
 
+import httpx
 from bson import ObjectId
 from bson.errors import InvalidId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-import httpx
-
 from app.core.config import settings
-from app.core.logging import logger
-
 from app.core.exceptions import BadRequestException, DatabaseException, NotFoundException
+from app.core.logging import logger
 from app.schemas.dashboard import DashboardCreate, DashboardUpdate
 from app.utils.beat_ownership import verify_beat_ownership
+from app.utils.space_connection import is_pricing_enabled, space_client
 
 
 class DashboardService:
@@ -137,6 +136,20 @@ class DashboardService:
                 f"No puedes crear múltiples dashboards para el mismo beat."
             )
 
+        # SPACE Pricing Validation
+        if is_pricing_enabled() and space_client:
+            async with space_client:
+                evaluation = await space_client.evaluate_feature(
+                    user_id=owner_id,
+                    feature_name="socialbeats-dashboards",
+                    consumption={"socialbeats-maxDashboards": 1},
+                )
+
+                if not evaluation.get("eval", False):
+                    raise BadRequestException(
+                        "You have reached the limit of dashboards. Upgrade your plan to create more!"
+                    )
+
         doc = {
             "owner_id": owner_id,  # Viene del usuario autenticado
             "beat_id": beat_id,
@@ -222,6 +235,22 @@ class DashboardService:
 
         try:
             await self.collection.delete_one({"_id": oid})
+
+            # SPACE Pricing: Revert dashboard consumption
+            if is_pricing_enabled() and space_client:
+                try:
+                    async with space_client:
+                        await space_client.evaluate_feature(
+                            user_id=user_id,
+                            feature_name="socialbeats-dashboards",
+                            consumption={"socialbeats-maxDashboards": 1},
+                            revert=True,
+                        )
+                except Exception as space_error:
+                    logger.warning(
+                        f"Failed to revert dashboard consumption in SPACE: {space_error}"
+                    )
+
             return {"message": "Dashboard deleted successfully", "id": dashboard_id}
         except Exception as e:
             raise DatabaseException(f"Failed to delete dashboard: {str(e)}")
@@ -266,6 +295,21 @@ class DashboardService:
         try:
             # Primero eliminar el dashboard
             await self.collection.delete_one({"_id": oid})
+
+            # SPACE Pricing: Revert dashboard consumption
+            if is_pricing_enabled() and space_client:
+                try:
+                    async with space_client:
+                        await space_client.evaluate_feature(
+                            user_id=user_id,
+                            feature_name="socialbeats-dashboards",
+                            consumption={"socialbeats-maxDashboards": 1},
+                            revert=True,
+                        )
+                except Exception as space_error:
+                    logger.warning(
+                        f"Failed to revert dashboard consumption in SPACE: {space_error}"
+                    )
 
             try:
                 async with httpx.AsyncClient(timeout=10.0) as client:

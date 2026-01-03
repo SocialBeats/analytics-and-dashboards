@@ -64,6 +64,11 @@ class Settings(BaseSettings):
         default="http://localhost:3005"
     )  # URL del microservicio de beats
 
+    # SPACE Pricing Configuration
+    SPACE_URL: str = Field(default="http://space-nginx:5403")
+    SPACE_API_KEY: str = Field(default="")
+    ENABLE_PRICING: bool = Field(default=True)
+
     # Kafka Configuration
     KAFKA_BROKER: str = Field(default="localhost:9092")
     ENABLE_KAFKA: bool = Field(default=True)
