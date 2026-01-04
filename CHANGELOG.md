@@ -1,3 +1,54 @@
+# Release v0.0.2
+
+## Features
+- feat: Update rate limiter for simplicity
+- feat: Adaptation and integration of SPACE for pricing
+- feat: prevent multiple dashboards for the same beat
+- feat: Update CORS origins and add Azure Translator API key
+- feat: Update CORS origins and add Azure Translator API key
+- feat: Added command to delete a dashboard and its beat when requested so
+- feat: Add metrics status and real-time event notification endpoints
+- feat: Added services and endpoints for new translator API
+- feat: Enhance Kafka consumer settings and notify beats service upon metrics creation
+- feat: Update Kafka broker configuration and enhance message logging in Kafka consumer service
+- feat: Add Quotable API integration with caching and rate limiting
+- feat: Enhance testing setup with Docker integration
+- feat: Add unit tests for BeatMetricsService with mocked dependencies
+- feat: Add unit tests for WidgetService to ensure functionality and error handling
+- feat: Add unit tests for DashboardService covering CRUD operations and validation
+- feat: Integrate Kafka consumer service and add health check endpoint
+
+## Tests
+No test changes.
+## Documentation
+No documentation changes.
+## Fixes
+- fix: Added removed sentitive information from .env.example and docker-compose.yml
+- fix: Update BEATS_SERVICE_URL and enhance beat ownership verification logging
+
+## Continuous integration (CI)
+No CI changes.
+## Other changes
+- Merge pull request #59 from SocialBeats/develop
+- Merge pull request #58 from SocialBeats/feat/space-integration
+- Merge pull request #57 from SocialBeats/feat/delete-beats-command
+- chore: resolve merge conflict in .env.example
+- Merge pull request #56 from SocialBeats/fix/azure-translator-config
+- Merge pull request #55 from SocialBeats/feat/metrics-status
+- Merge pull request #54 from SocialBeats/feat/microsoft-translator-api
+- Merge branch 'develop' into feat/microsoft-translator-api
+- Merge pull request #49 from SocialBeats/feat/metrics-pending
+- Merge pull request #46 from SocialBeats/feat/calculate-metrics
+- Merge pull request #47 from SocialBeats/feat/external-api
+- Merge pull request #40 from SocialBeats/feat/test-suite
+- Merge pull request #38 from SocialBeats/feat/kafka-integration
+- Merge pull request #35 from SocialBeats/fix/beats-upload-connection
+- Add MIT License to the project
+
+## Full commit history
+
+For full commit history, see [here](https://github.com/SocialBeats/analytics-and-dashboards/compare/v0.0.1...v0.0.2).
+
 # Release v0.0.1
 
 ## Features
