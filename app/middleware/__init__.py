@@ -8,7 +8,6 @@ from app.middleware.rate_limiter import (
     init_redis,
     close_redis,
     rate_limit_handler,
-    get_dynamic_rate_limit,
     strict_rate_limit,
     STRICT_RATE_LIMIT,
 )
@@ -21,7 +20,6 @@ __all__ = [
     "init_redis",
     "close_redis",
     "rate_limit_handler",
-    "get_dynamic_rate_limit",
     "strict_rate_limit",
     "STRICT_RATE_LIMIT",
 ]
