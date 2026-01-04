@@ -6,19 +6,17 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
 
 from app.core.config import settings
 from app.core.logging import logger
 from app.database import database
-from app.endpoints import health
-from app.endpoints import dashboards
-from app.endpoints import widgets
-from app.endpoints import beat_metrics
+from app.endpoints import beat_metrics, dashboards, health, quotable, translator, widgets, events
 from app.endpoints.examples import example_rate_limit
 from app.middleware.authentication import verify_jwt_token
-from app.middleware.rate_limiter import limiter, init_redis, close_redis, rate_limit_handler
-from slowapi.errors import RateLimitExceeded
 from app.middleware.circuit_breaker import circuit_breaker_middleware
+from app.middleware.rate_limiter import close_redis, init_redis, limiter, rate_limit_handler
+from app.services.kafka_consumer import consumer, kafka_service, producer
 
 
 @asynccontextmanager
@@ -28,12 +26,14 @@ async def lifespan(app: FastAPI):
     try:
         await database.connect()
         await init_redis()  # Initialize Redis for rate limiting
+        await kafka_service.start_kafka_consumer()  # Initialize Kafka consumer
         logger.info("Application startup complete")
     except Exception as e:
         logger.error(f"Failed to start application: {str(e)}")
         raise
     yield
     logger.info("Shutting down application")
+    await kafka_service.stop()  # Stop Kafka connections
     await close_redis()  # Close Redis connection
     await database.disconnect()
     logger.info("Application shutdown complete")
@@ -70,6 +70,9 @@ app.include_router(health.router, prefix="/api/v1", tags=["health"])
 app.include_router(dashboards.router, prefix="/api/v1", tags=["dashboards"])
 app.include_router(widgets.router, prefix="/api/v1", tags=["widgets"])
 app.include_router(beat_metrics.router, prefix="/api/v1", tags=["beat_metrics"])
+app.include_router(quotable.router, prefix="/api/v1", tags=["quotable"])
+app.include_router(translator.router, prefix="/api/v1", tags=["translator"])
+app.include_router(events.router, prefix="/api/v1/analytics", tags=["events"])
 app.include_router(example_rate_limit.router, prefix="/api/v1", tags=["examples_rate_limit"])
 
 

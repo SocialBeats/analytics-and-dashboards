@@ -7,42 +7,48 @@ from datetime import datetime
 from typing import Optional
 from app.models.beat_metrics import CoreMetrics, ExtraMetrics
 
+
 class BeatMetricsCreate(BaseModel):
     """
     Schema for creating a new BeatMetrics record.
     The metrics will be automatically calculated from the audio file.
     """
-    model_config = ConfigDict(
-        from_attributes=True
-    )
+
+    model_config = ConfigDict(from_attributes=True)
 
     beatId: str = Field(..., description="Unique identifier for the beat")
-    audioUrl: Optional[str] = Field(None, description="URL to the audio file (if file is stored externally)")
+    audioUrl: Optional[str] = Field(
+        None, description="URL to the audio file (if file is stored externally)"
+    )
+
 
 class BeatMetricsCreateInternal(BaseModel):
     """
     Internal schema for creating a new BeatMetrics record with calculated metrics.
     """
-    model_config = ConfigDict(
-        from_attributes=True
-    )
+
+    model_config = ConfigDict(from_attributes=True)
 
     beatId: str = Field(..., description="Unique identifier for the beat metrics record")
 
     # Core Metrics
     coreMetrics: CoreMetrics = Field(..., description="Core beat metrics.")
-    extraMetrics: ExtraMetrics = Field(..., description="Additional beat metrics for extended analysis.")
+    extraMetrics: ExtraMetrics = Field(
+        ..., description="Additional beat metrics for extended analysis."
+    )
+
 
 class BeatMetricsUpdate(BaseModel):
     """
     Schema for updating an existing BeatMetrics record.
     """
-    model_config = ConfigDict(
-        from_attributes=True
-    )
+
+    model_config = ConfigDict(from_attributes=True)
 
     coreMetrics: Optional[CoreMetrics] = Field(None, description="Core beat metrics.")
-    extraMetrics: Optional[ExtraMetrics] = Field(None, description="Additional beat metrics for extended analysis.")
+    extraMetrics: Optional[ExtraMetrics] = Field(
+        None, description="Additional beat metrics for extended analysis."
+    )
 
 
 class BeatMetricsResponse(BaseModel):
@@ -50,11 +56,16 @@ class BeatMetricsResponse(BaseModel):
     Schema for BeatMetrics response.
     """
 
-    beatId: str = Field(..., description="Unique identifier for the beat metrics record")
+    id: Optional[str] = Field(None, description="Unique identifier for the beat metrics record")
+    beatId: str = Field(..., description="Unique identifier for the beat")
     coreMetrics: CoreMetrics = Field(..., description="Core beat metrics.")
-    extraMetrics: ExtraMetrics = Field(..., description="Additional beat metrics for extended analysis.")
+    extraMetrics: ExtraMetrics = Field(
+        ..., description="Additional beat metrics for extended analysis."
+    )
     createdAt: datetime = Field(..., description="Timestamp when the record was created")
-    updatedAt: Optional[datetime] = Field(None, description="Timestamp when the record was last updated")
+    updatedAt: Optional[datetime] = Field(
+        None, description="Timestamp when the record was last updated"
+    )
 
     model_config = ConfigDict(
         from_attributes=True,

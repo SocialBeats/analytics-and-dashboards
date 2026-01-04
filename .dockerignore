@@ -53,7 +53,6 @@ docs/
 Thumbs.db
 
 # Development files
-requirements-dev.txt
 .pre-commit-config.yaml
 
 # Temporary audio files

@@ -12,9 +12,14 @@ from fastapi import UploadFile
 from app.core.exceptions import NotFoundException, BadRequestException, DatabaseException, AudioProcessingException
 from app.schemas.beat_metrics import BeatMetricsCreate, BeatMetricsUpdate, BeatMetricsCreateInternal
 from app.models.beat_metrics import CoreMetrics, ExtraMetrics
+from app.models.beat_metrics_status import BeatMetricsStatus
 from app.services.audio_analyzer import analyze_audio_file
 from app.utils.audio_file_handler import AudioFileHandler
 from app.utils.beat_ownership import verify_beat_ownership
+import httpx
+from app.core.config import settings
+from app.core.logging import logger
+import json
 
 
 class BeatMetricsService:
@@ -23,11 +28,14 @@ class BeatMetricsService:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
         self.collection = db.beat_metrics
+        self.status_collection = db.beat_metrics_status
         self.audio_handler = AudioFileHandler()
 
     async def ensure_indexes(self):
         try:
             await self.collection.create_index("beatId")
+            await self.status_collection.create_index("beat_id", unique=True)
+            await self.status_collection.create_index("user_id")
         except Exception as e:
             raise DatabaseException(f"Failed to create indexes: {e}")
 
@@ -40,8 +48,9 @@ class BeatMetricsService:
 
     @staticmethod
     def serialize(doc: dict) -> dict:
-        doc["id"] = str(doc["_id"])
-        doc.pop("_id", None)
+        if "_id" in doc:
+            doc["id"] = str(doc["_id"])
+            doc.pop("_id", None)
         return doc
 
     async def get_all(
@@ -103,6 +112,22 @@ class BeatMetricsService:
             user_id,
             is_admin
         )
+        
+        # Create initial status record
+        beat_id = beat_metrics_data.beatId
+        status_doc = BeatMetricsStatus(
+            beat_id=beat_id,
+            user_id=user_id,
+            status="calculating",
+            started_at=datetime.utcnow()
+        )
+        await self.status_collection.update_one(
+            {"beat_id": beat_id},
+            {"$set": status_doc.model_dump()},
+            upsert=True
+        )
+        logger.info(f"Created 'calculating' status for beat {beat_id}")
+        
         audio_path = None
         try:
             if audio_file:
@@ -145,13 +170,89 @@ class BeatMetricsService:
                 raise DatabaseException("Failed to create BeatMetrics record")
 
             doc = await self.collection.find_one({"_id": result.inserted_id})
+
+            metrics_id = str(result.inserted_id)
+            completed_at = datetime.utcnow()
+            
+            # Update status to completed
+            await self.status_collection.update_one(
+                {"beat_id": beat_id},
+                {"$set": {
+                    "status": "completed",
+                    "metrics_id": metrics_id,
+                    "completed_at": completed_at
+                }}
+            )
+            logger.info(f"Updated status to 'completed' for beat {beat_id}")
+            
+            # Broadcast METRICS_COMPLETED event to SSE clients and Kafka
+            try:
+                from app.services.kafka_consumer import kafka_service
+                
+                event_data = {
+                    "beatId": beat_id,
+                    "metricsId": metrics_id,
+                    "userId": user_id,
+                    "status": "completed",
+                    "computedAt": completed_at.isoformat()
+                }
+                
+                # Broadcast to SSE clients (real-time frontend notifications)
+                await kafka_service.broadcaster.broadcast("METRICS_COMPLETED", event_data)
+                logger.info(f"Broadcasted METRICS_COMPLETED to SSE clients for beat {beat_id}")
+                
+                # Publish to Kafka (for other microservices)
+                if kafka_service.is_connected and kafka_service.producer:
+                    kafka_event = {
+                        "type": "METRICS_COMPLETED",
+                        "payload": event_data,
+                        "timestamp": completed_at.isoformat()
+                    }
+                    await kafka_service.producer.send_and_wait(
+                        "beats-events",
+                        value=json.dumps(kafka_event).encode("utf-8")
+                    )
+                    logger.info(f"Published METRICS_COMPLETED event to Kafka for beat {beat_id}")
+                
+            except Exception as e:
+                # Non-fatal: log and continue
+                logger.error(f"Error broadcasting METRICS_COMPLETED event: {e}")
+
             return self.serialize(doc)
 
-        except (BadRequestException, AudioProcessingException):
+        except (BadRequestException, AudioProcessingException) as e:
+            # Update status to failed
+            await self.status_collection.update_one(
+                {"beat_id": beat_id},
+                {"$set": {
+                    "status": "failed",
+                    "error_message": str(e),
+                    "completed_at": datetime.utcnow()
+                }}
+            )
+            logger.error(f"Metrics calculation failed for beat {beat_id}: {e}")
             raise
-        except DatabaseException:
+        except DatabaseException as e:
+            # Update status to failed
+            await self.status_collection.update_one(
+                {"beat_id": beat_id},
+                {"$set": {
+                    "status": "failed",
+                    "error_message": str(e),
+                    "completed_at": datetime.utcnow()
+                }}
+            )
             raise
         except Exception as e:
+            # Update status to failed
+            await self.status_collection.update_one(
+                {"beat_id": beat_id},
+                {"$set": {
+                    "status": "failed",
+                    "error_message": str(e),
+                    "completed_at": datetime.utcnow()
+                }}
+            )
             raise DatabaseException(f"Unexpected error creating beat metrics: {e}")
         finally:
             if audio_path:
@@ -228,7 +329,7 @@ class BeatMetricsService:
             user_id,
             is_admin
         )
-
+        
         try:
             result = await self.collection.delete_one({"_id": obj_id})
             if result.deleted_count == 0:
@@ -237,3 +338,49 @@ class BeatMetricsService:
             raise
         except Exception as e:
             raise DatabaseException(f"Failed to delete beat metrics: {e}")
+
+    async def get_metrics_status(self, beat_id: str) -> Optional[dict]:
+        """
+        Get the metrics calculation status for a beat
+        
+        Args:
+            beat_id: ID of the beat
+            
+        Returns:
+            Status document with fields: beat_id, user_id, status, metrics_id, started_at, completed_at, error_message
+            None if no status record exists
+        """
+        try:
+            status_doc = await self.status_collection.find_one({"beat_id": beat_id})
+            if status_doc:
+                if "_id" in status_doc:
+                    status_doc["id"] = str(status_doc["_id"])
+                    status_doc.pop("_id", None)
+            return status_doc
+        except Exception as e:
+            logger.error(f"Error fetching metrics status for beat {beat_id}: {e}")
+            return None
+    
+    async def get_metrics_status_batch(self, beat_ids: List[str]) -> dict:
+        """
+        Get metrics status for multiple beats at once
+        
+        Args:
+            beat_ids: List of beat IDs
+            
+        Returns:
+            Dictionary mapping beat_id -> status document
+        """
+        try:
+            cursor = self.status_collection.find({"beat_id": {"$in": beat_ids}})
+            result = {}
+            async for doc in cursor:
+                beat_id = doc["beat_id"]
+                if "_id" in doc:
+                    doc["id"] = str(doc["_id"])
+                    doc.pop("_id", None)
+                result[beat_id] = doc
+            return result
+        except Exception as e:
+            logger.error(f"Error fetching batch metrics status: {e}")
+            return {}
