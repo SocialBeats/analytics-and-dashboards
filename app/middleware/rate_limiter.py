@@ -2,19 +2,22 @@
 Rate Limiting Middleware for FastAPI
 Throttling/Rate Limiting Pattern - Adapted from API Gateway
 
-Implements rate limiting with pricing plan tiers and Redis support.
+Implements rate limiting with manual configuration per endpoint and Redis support.
 Falls back to in-memory storage if Redis is unavailable.
+Rate limits are set manually on each endpoint using @limiter.limit() decorator.
 """
 
-from typing import Optional, Callable
-from fastapi import Request, HTTPException, status
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+from typing import Optional
+
 import redis.asyncio as redis
+from fastapi import Request, status
+from fastapi.responses import JSONResponse
+from slowapi import Limiter
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
 from app.core.config import settings
 from app.core.logging import logger
-
 
 # Global Redis client
 redis_client: Optional[redis.Redis] = None
@@ -35,10 +38,7 @@ async def init_redis() -> Optional[redis.Redis]:
 
     try:
         client = redis.Redis.from_url(
-            settings.REDIS_URL,
-            encoding="utf-8",
-            decode_responses=True,
-            socket_connect_timeout=5
+            settings.REDIS_URL, encoding="utf-8", decode_responses=True, socket_connect_timeout=5
         )
         # Test connection
         await client.ping()
@@ -62,59 +62,16 @@ async def close_redis():
 def get_user_identifier(request: Request) -> str:
     """
     Get unique identifier for rate limiting
-    Uses user ID if authenticated, otherwise falls back to IP address
+    Uses IP address for rate limiting
 
     Args:
         request: FastAPI request object
 
     Returns:
-        Unique identifier string
+        Unique identifier string based on IP address
     """
-    # Try to get user from JWT authentication
-    if hasattr(request.state, "user") and request.state.user:
-        user_id = request.state.user.get("userId")
-        if user_id:
-            return f"user:{user_id}"
-
-    # Fall back to IP address
+    # Use IP address for rate limiting
     return f"ip:{get_remote_address(request)}"
-
-
-def get_rate_limit_for_user(request: Request) -> str:
-    """
-    Determine rate limit based on user's pricing plan
-
-    Rate limits per pricing plan:
-    - free: 20 requests per minute
-    - pro: 50 requests per minute
-    - studio: 200 requests per minute
-    - unauthenticated: 10 requests per minute
-
-    Args:
-        request: FastAPI request object
-
-    Returns:
-        Rate limit string in format "X/minute"
-    """
-    # Default for unauthenticated users
-    if not hasattr(request.state, "user") or not request.state.user:
-        return "10/minute"
-
-    # Get pricing plan from user state (set by authentication middleware)
-    user = request.state.user
-    plan = user.get("pricingPlan", "free")
-
-    # Rate limits by plan
-    limits = {
-        "free": "20/minute",
-        "pro": "50/minute",
-        "studio": "200/minute",
-    }
-
-    limit = limits.get(plan, limits["free"])
-    logger.debug(f"Rate limit for plan {plan}: {limit}")
-
-    return limit
 
 
 def create_rate_limiter() -> Limiter:
@@ -147,45 +104,22 @@ def rate_limit_handler(request: Request, exc: RateLimitExceeded):
         exc: RateLimitExceeded exception
 
     Returns:
-        JSONResponse with detailed rate limit information
+        JSONResponse with rate limit information
     """
-    from fastapi.responses import JSONResponse
 
-    # Get user info if available
-    plan = "free"
-    user_id = None
-
-    if hasattr(request.state, "user") and request.state.user:
-        user = request.state.user
-        plan = user.get("pricingPlan", "free")
-        user_id = user.get("userId")
-
-    logger.warn(f"Rate limit exceeded for user: {user_id} (plan: {plan})")
+    identifier = get_user_identifier(request)
+    logger.warn(f"Rate limit exceeded for: {identifier}")
 
     return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         content={
             "error": "Too many requests",
-            "message": f"Rate limit exceeded for {plan} plan",
-            "currentPlan": plan,
-            "upgradeInfo": "Upgrade your plan for higher limits",
-            "retryAfter": exc.detail.split("Retry after ")[1] if "Retry after" in exc.detail else None
-        }
+            "message": "Rate limit exceeded. Please try again later.",
+            "retryAfter": exc.detail.split("Retry after ")[1]
+            if "Retry after" in exc.detail
+            else None,
+        },
     )
-
-
-def get_dynamic_rate_limit() -> Callable[[Request], str]:
-    """
-    Factory function to create dynamic rate limit function
-    This allows rate limits to be determined per-request based on user's plan
-
-    Returns:
-        Function that determines rate limit for a request
-    """
-    def _get_limit(request: Request) -> str:
-        return get_rate_limit_for_user(request)
-
-    return _get_limit
 
 
 # Strict rate limiter for sensitive endpoints (e.g., data exports, heavy computations)
