@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request, Response, Depends
 from typing import Dict, Any
 
 from app.services.quotable_service import QuotableService
-from app.middleware.rate_limiter import limiter, get_rate_limit_for_user
+from app.middleware.rate_limiter import limiter
 from app.middleware.authentication import get_current_user
 
 router = APIRouter()

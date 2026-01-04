@@ -7,7 +7,7 @@ For production use, apply these patterns to your actual endpoints.
 
 from fastapi import APIRouter, Request, Response, Depends
 from app.middleware.authentication import get_current_user
-from app.middleware.rate_limiter import limiter, get_dynamic_rate_limit, STRICT_RATE_LIMIT
+from app.middleware.rate_limiter import limiter, STRICT_RATE_LIMIT
 
 router = APIRouter()
 
@@ -27,20 +27,16 @@ async def basic_rate_limit_example(request: Request, response: Response):
 
 
 @router.get("/rate-limit-examples/dynamic")
-@limiter.limit(get_dynamic_rate_limit())  # Dynamic limit based on pricing plan
+@limiter.limit("50/minute")  # Fixed limit for authenticated users
 async def dynamic_rate_limit_example(
     request: Request,
     response: Response,
     user: dict = Depends(get_current_user)
 ):
     """
-    Example: Dynamic rate limit based on user's pricing plan
+    Example: Rate limit for authenticated users
 
-    Limits adjust automatically:
-    - Free: 10 requests/min
-    - Basic: 50 requests/min
-    - Studio: 200 requests/min
-    - Enterprise: 1000 requests/min
+    Authenticated users get 50 requests/min
     """
     plan = user.get("pricingPlan", "free")
 
