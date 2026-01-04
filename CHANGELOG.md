@@ -1,3 +1,23 @@
+# Release v0.0.3
+
+## Features
+- feat: Simplify rate limiting by removing dynamic limit functionality
+
+## Tests
+No test changes.
+## Documentation
+No documentation changes.
+## Fixes
+No fixes added.
+## Continuous integration (CI)
+No CI changes.
+## Other changes
+- Merge pull request #60 from SocialBeats/develop
+
+## Full commit history
+
+For full commit history, see [here](https://github.com/SocialBeats/analytics-and-dashboards/compare/v0.0.2...v0.0.3).
+
 # Release v0.0.2
 
 ## Features
