@@ -185,6 +185,56 @@ class SpaceClient:
             logger.error(f"Error getting features from SPACE: {str(e)}")
             raise
 
+    async def update_usage_levels(
+        self, user_id: str, usage_levels: Dict[str, Dict[str, int]]
+    ) -> Dict[str, Any]:
+        """
+        Update usage levels for a specific user (typically to revert consumption).
+
+        Calls SPACE's PUT /api/v1/contracts/{userId}/usageLevels endpoint.
+
+        Args:
+            user_id: User's contract ID in SPACE
+            usage_levels: Dict with usage levels to update
+                         Example: {'socialbeats': {'maxDashboards': -1}}
+                         Use negative values to decrement consumption
+
+        Returns:
+            Dict with the update result
+
+        Raises:
+            httpx.HTTPStatusError: If the request fails
+
+        Example:
+            await space_client.update_usage_levels(
+                user_id="user123",
+                usage_levels={'socialbeats': {'maxDashboards': -1}}
+            )
+        """
+        if self._client is None:
+            await self.connect()
+
+        try:
+            logger.debug(f"Updating usage levels for user '{user_id}' with: {usage_levels}")
+
+            response = await self._client.put(
+                f"/api/v1/contracts/{user_id}/usageLevels",
+                json=usage_levels,
+            )
+            response.raise_for_status()
+
+            result = response.json()
+            logger.debug(f"Usage levels update result: {result}")
+
+            return result
+
+        except httpx.HTTPStatusError as e:
+            logger.error(f"SPACE API error: {e.response.status_code} - {e.response.text}")
+            raise
+        except Exception as e:
+            logger.error(f"Error updating usage levels in SPACE: {str(e)}")
+            raise
+
 
 def is_pricing_enabled() -> bool:
     """

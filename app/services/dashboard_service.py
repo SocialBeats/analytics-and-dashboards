@@ -240,11 +240,9 @@ class DashboardService:
             if is_pricing_enabled() and space_client:
                 try:
                     async with space_client:
-                        await space_client.evaluate_feature(
+                        await space_client.update_usage_levels(
                             user_id=user_id,
-                            feature_name="socialbeats-dashboards",
-                            consumption={"socialbeats-maxDashboards": 1},
-                            revert=True,
+                            usage_levels={"socialbeats": {"maxDashboards": -1}},
                         )
                 except Exception as space_error:
                     logger.warning(
@@ -300,11 +298,9 @@ class DashboardService:
             if is_pricing_enabled() and space_client:
                 try:
                     async with space_client:
-                        await space_client.evaluate_feature(
+                        await space_client.update_usage_levels(
                             user_id=user_id,
-                            feature_name="socialbeats-dashboards",
-                            consumption={"socialbeats-maxDashboards": 1},
-                            revert=True,
+                            usage_levels={"socialbeats": {"maxDashboards": -1}},
                         )
                 except Exception as space_error:
                     logger.warning(
