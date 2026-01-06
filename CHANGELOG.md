@@ -1,3 +1,24 @@
+# Release v1.0.0
+
+## Features
+- feat: Replace evaluate_feature with update_usage_levels in DashboardService
+
+## Tests
+No test changes.
+## Documentation
+No documentation changes.
+## Fixes
+No fixes added.
+## Continuous integration (CI)
+No CI changes.
+## Other changes
+- Merge pull request #61 from SocialBeats/develop
+- Merge branch 'develop' of https://github.com/SocialBeats/analytics-and-dashboards into develop
+
+## Full commit history
+
+For full commit history, see [here](https://github.com/SocialBeats/analytics-and-dashboards/compare/v0.0.3...v1.0.0).
+
 # Release v0.0.3
 
 ## Features
