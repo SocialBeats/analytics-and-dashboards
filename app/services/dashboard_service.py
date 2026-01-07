@@ -145,6 +145,7 @@ class DashboardService:
                     consumption={"socialbeats-maxDashboards": 1},
                 )
 
+
                 if not evaluation.get("eval", False):
                     raise BadRequestException(
                         "You have reached the limit of dashboards. Upgrade your plan to create more!"
