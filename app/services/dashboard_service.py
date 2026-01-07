@@ -242,7 +242,7 @@ class DashboardService:
                     async with space_client:
                         await space_client.update_usage_levels(
                             user_id=user_id,
-                            usage_levels={"socialbeats": {"socialbeats-maxDashboards": -1}},
+                            usage_levels={"socialbeats-dashboards": {"socialbeats-maxDashboards": -1}},
                         )
                 except Exception as space_error:
                     logger.warning(
@@ -300,7 +300,7 @@ class DashboardService:
                     async with space_client:
                         await space_client.update_usage_levels(
                             user_id=user_id,
-                            usage_levels={"socialbeats": {"social-maxDashboards": -1}},
+                            usage_levels={"socialbeats-dashboards": {"socialbeats-maxDashboards": -1}},
                         )
                 except Exception as space_error:
                     logger.warning(
