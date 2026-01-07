@@ -1,3 +1,23 @@
+# Release v2.0.1
+
+## Features
+No new features.
+## Tests
+No test changes.
+## Documentation
+No documentation changes.
+## Fixes
+- fix: Feature name
+
+## Continuous integration (CI)
+No CI changes.
+## Other changes
+- Merge pull request #66 from SocialBeats/develop
+
+## Full commit history
+
+For full commit history, see [here](https://github.com/SocialBeats/analytics-and-dashboards/compare/v2.0.0...v2.0.1).
+
 # Release v2.0.0
 
 ## Features
