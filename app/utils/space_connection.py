@@ -19,16 +19,18 @@ class SpaceClient:
     https://github.com/isa-group/space
     """
 
-    def __init__(self, url: str, api_key: str):
+    def __init__(self, url: str, api_key: str, api_prefix: str = "/api/v1"):
         """
         Initialize SPACE client.
 
         Args:
             url: Base URL of SPACE server (e.g., 'http://localhost:5403')
             api_key: API key for authentication
+            api_prefix: API path prefix (default: '/api/v1')
         """
         self.url = url.rstrip("/")
         self.api_key = api_key
+        self.api_prefix = api_prefix
         self._client: Optional[httpx.AsyncClient] = None
 
     async def __aenter__(self):
@@ -121,28 +123,64 @@ class SpaceClient:
         try:
             logger.debug(f"Evaluating feature '{feature_name}' for user '{user_id}'")
 
-            # Step 1: Evaluate the feature (POST /features/{userId}/{featureId})
+            # Step 1: Evaluate the feature (POST /api/v1/features/{userId}/{featureId})
             eval_response = await self._client.post(
-                f"/features/{user_id}/{feature_name}",
+                f"{self.api_prefix}/features/{user_id}/{feature_name}",
                 params=params,
                 json=body,
             )
             eval_response.raise_for_status()
 
-            # Verificar que la respuesta de evaluación no esté vacía
-            if not eval_response.content or len(eval_response.content.strip()) == 0:
+            # Get response details for validation
+            response_text = eval_response.text.strip()
+            content_type = eval_response.headers.get("content-type", "").lower()
+
+            # Validate that we received JSON response
+            if "application/json" not in content_type:
                 logger.error(
-                    f"SPACE API returned empty response for feature '{feature_name}' "
-                    f"and user '{user_id}'. Status: {eval_response.status_code}"
+                    f"SPACE API returned non-JSON response for feature '{feature_name}' "
+                    f"and user '{user_id}'. Status: {eval_response.status_code}, "
+                    f"Content-Type: {content_type}, "
+                    f"Content-Length: {len(eval_response.content)} bytes, "
+                    f"Raw content (first 500 chars): {response_text[:500]}"
                 )
                 raise ValueError(
-                    f"SPACE API returned empty response (HTTP {eval_response.status_code}). "
-                    f"Please verify that the feature '{feature_name}' exists in SPACE "
-                    f"and user '{user_id}' has a valid contract."
+                    f"SPACE API returned non-JSON response (HTTP {eval_response.status_code}). "
+                    f"Content-Type: {content_type}. "
+                    f"This usually means the feature '{feature_name}' does not exist in SPACE, "
+                    f"or the user '{user_id}' does not have a valid contract. "
+                    f"Please verify the SPACE configuration and check if the endpoint is correct. "
+                    f"Raw response preview: {response_text[:200]}"
                 )
 
-            result = eval_response.json()
-            logger.debug(f"Feature evaluation result: {result}")
+            # Verify response is not empty
+            if not response_text:
+                logger.error(
+                    f"SPACE API returned empty response for feature '{feature_name}' "
+                    f"and user '{user_id}'. Status: {eval_response.status_code}, "
+                    f"Content-Type: {content_type}"
+                )
+                raise ValueError(
+                    f"SPACE API returned empty JSON response (HTTP {eval_response.status_code}). "
+                    f"Please verify the SPACE configuration."
+                )
+
+            # Parse JSON response
+            try:
+                result = eval_response.json()
+                logger.debug(f"Feature evaluation result: {result}")
+            except ValueError as json_error:
+                logger.error(
+                    f"Failed to parse JSON from SPACE. "
+                    f"Status: {eval_response.status_code}, "
+                    f"Content-Type: {content_type}, "
+                    f"Raw content (first 500 chars): {response_text[:500]}"
+                )
+                raise ValueError(
+                    f"SPACE API returned invalid JSON (HTTP {eval_response.status_code}). "
+                    f"Content-Type: {content_type}. "
+                    f"Raw response: {response_text[:200]}"
+                ) from json_error
 
             # Step 2: If eval=true, update usage levels (PUT /api/v1/contracts/{userId}/usageLevels)
             if result.get("eval", False):
@@ -197,7 +235,7 @@ class SpaceClient:
 
         try:
             response = await self._client.post(
-                f"/features/{user_id}",
+                f"{self.api_prefix}/features/{user_id}",
                 params=params,
             )
             response.raise_for_status()
@@ -243,7 +281,7 @@ class SpaceClient:
             logger.debug(f"Updating usage levels for user '{user_id}' with: {usage_levels}")
 
             response = await self._client.put(
-                f"/api/v1/contracts/{user_id}/usageLevels",
+                f"{self.api_prefix}/contracts/{user_id}/usageLevels",
                 json=usage_levels,
             )
             response.raise_for_status()
@@ -290,7 +328,7 @@ def get_space_client() -> Optional[SpaceClient]:
             return None
 
         spaceClient = SpaceClient(url=settings.SPACE_URL, api_key=settings.SPACE_API_KEY)
-        logger.info(spaceClient.connect)
+        logger.info(f"SPACE client initialized for {settings.SPACE_URL}")
         return spaceClient
 
     return None
