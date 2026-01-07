@@ -1,3 +1,23 @@
+# Release v1.0.1
+
+## Features
+No new features.
+## Tests
+No test changes.
+## Documentation
+No documentation changes.
+## Fixes
+- fix: Fix name of feature and usage limit names for SPACE
+
+## Continuous integration (CI)
+No CI changes.
+## Other changes
+- Merge pull request #62 from SocialBeats/develop
+
+## Full commit history
+
+For full commit history, see [here](https://github.com/SocialBeats/analytics-and-dashboards/compare/v1.0.0...v1.0.1).
+
 # Release v1.0.0
 
 ## Features
