@@ -64,25 +64,19 @@ class SpaceClient:
         self,
         user_id: str,
         feature_name: str,
-        consumption: Optional[Dict[str, Any]] = None,
         server: bool = False,
-        revert: bool = False,
-        latest: bool = False,
     ) -> Dict[str, Any]:
         """
-        Evaluate a feature for a specific user.
+        Evaluate a feature for a specific user WITHOUT updating consumption.
 
         This method calls SPACE's POST /features/{userId}/{featureId} endpoint
         to check if a user can perform an action based on their pricing plan.
+        It does NOT update usage levels - use update_usage_levels() for that.
 
         Args:
             user_id: User's contract ID in SPACE
-            feature_name: Name of the feature to evaluate (e.g., 'analytics-maxDashboards')
-            consumption: Optional dict with expected consumption values
-                        Example: {'maxDashboards': 1, 'maxWidgets': 5}
+            feature_name: Name of the feature to evaluate (e.g., 'socialbeats-maxDashboards')
             server: Whether to use server-side expressions (default: False)
-            revert: Undo optimistic usage update (default: False)
-            latest: Reset to most recent cached value when reverting (default: False)
 
         Returns:
             Dict with evaluation result:
@@ -97,13 +91,21 @@ class SpaceClient:
             httpx.HTTPStatusError: If the request fails
 
         Example:
+            # Step 1: Evaluate if user can create dashboard
             result = await space_client.evaluate_feature(
                 user_id="user123",
-                feature_name="analytics-dashboards",
-                consumption={"maxDashboards": 1}
+                feature_name="socialbeats-maxDashboards"
             )
-            if not result["eval"]:
-                raise Exception("User has reached dashboard limit")
+
+            if result["eval"]:
+                # Step 2: Create the dashboard in your DB
+                # ...
+
+                # Step 3: Update usage in SPACE
+                await space_client.update_usage_levels(
+                    user_id="user123",
+                    usage_levels={"socialbeats": {"maxDashboards": 1}}
+                )
         """
         if self._client is None:
             await self.connect()
@@ -112,42 +114,50 @@ class SpaceClient:
         params = {}
         if server:
             params["server"] = "true"
-        if revert:
-            params["revert"] = "true"
-        if latest:
-            params["latest"] = "true"
 
-        # Build request body
-        body = consumption if consumption else {}
+        # Empty body - we only want to evaluate, not update consumption
+        body = {}
 
         try:
-            logger.debug(
-                f"Evaluating feature '{feature_name}' for user '{user_id}' "
-                f"with consumption: {consumption}"
-            )
+            logger.debug(f"Evaluating feature '{feature_name}' for user '{user_id}'")
 
-            response = await self._client.post(
+            # Step 1: Evaluate the feature (POST /features/{userId}/{featureId})
+            eval_response = await self._client.post(
                 f"/features/{user_id}/{feature_name}",
                 params=params,
                 json=body,
             )
-            response.raise_for_status()
+            eval_response.raise_for_status()
 
-            # Verificar que la respuesta no esté vacía
-            if not response.content or len(response.content.strip()) == 0:
+            # Verificar que la respuesta de evaluación no esté vacía
+            if not eval_response.content or len(eval_response.content.strip()) == 0:
                 logger.error(
                     f"SPACE API returned empty response for feature '{feature_name}' "
-                    f"and user '{user_id}'. Status: {response.status_code}"
+                    f"and user '{user_id}'. Status: {eval_response.status_code}"
                 )
                 raise ValueError(
-                    f"SPACE API returned empty response (HTTP {response.status_code}). "
+                    f"SPACE API returned empty response (HTTP {eval_response.status_code}). "
                     f"Please verify that the feature '{feature_name}' exists in SPACE "
                     f"and user '{user_id}' has a valid contract."
                 )
 
-            result = response.json()
+            result = eval_response.json()
             logger.debug(f"Feature evaluation result: {result}")
 
+            # Step 2: If eval=true, update usage levels (PUT /api/v1/contracts/{userId}/usageLevels)
+            if result.get("eval", False):
+                try:
+                    update_response = await self._client.put(
+                        f"/api/v1/contracts/{user_id}/usageLevels",
+                        json={"socialbeats": {"maxDashboards": 1}},
+                    )
+                    update_response.raise_for_status()
+                    logger.info(f"Updated usage levels for user {user_id}: maxDashboards +1")
+                except Exception as update_error:
+                    logger.error(f"Failed to update usage levels: {update_error}")
+                    # Don't raise - evaluation was successful, just log the update failure
+
+            # Always return the evaluation result, not the update result
             return result
 
         except httpx.HTTPStatusError as e:

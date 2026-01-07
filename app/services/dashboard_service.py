@@ -136,21 +136,21 @@ class DashboardService:
                 f"No puedes crear múltiples dashboards para el mismo beat."
             )
 
-        # SPACE Pricing Validation
+        # SPACE Pricing: Evaluate if user can create dashboard
+        # Note: evaluate_feature() now handles both evaluation AND usage update
         if is_pricing_enabled() and space_client:
             async with space_client:
                 evaluation = await space_client.evaluate_feature(
                     user_id=owner_id,
-                    feature_name="socialbeats-dashboards",
-                    consumption={"socialbeats-maxDashboards": 1},
+                    feature_name="socialbeats-maxDashboards",
                 )
-
 
                 if not evaluation.get("eval", False):
                     raise BadRequestException(
                         "You have reached the limit of dashboards. Upgrade your plan to create more!"
                     )
 
+        # Create the dashboard in database
         doc = {
             "owner_id": owner_id,  # Viene del usuario autenticado
             "beat_id": beat_id,
@@ -243,7 +243,7 @@ class DashboardService:
                     async with space_client:
                         await space_client.update_usage_levels(
                             user_id=user_id,
-                            usage_levels={"socialbeats-dashboards": {"socialbeats-maxDashboards": -1}},
+                            usage_levels={"socialbeats": {"maxDashboards": -1}},
                         )
                 except Exception as space_error:
                     logger.warning(
@@ -301,7 +301,7 @@ class DashboardService:
                     async with space_client:
                         await space_client.update_usage_levels(
                             user_id=user_id,
-                            usage_levels={"socialbeats-dashboards": {"socialbeats-maxDashboards": -1}},
+                            usage_levels={"socialbeats": {"maxDashboards": -1}},
                         )
                 except Exception as space_error:
                     logger.warning(

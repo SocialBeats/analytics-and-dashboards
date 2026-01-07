@@ -175,13 +175,20 @@ def print_usage_examples():
    client = get_space_client()
    if client:
        async with client:
+           # Step 1: Evaluate if user can create dashboard
            result = await client.evaluate_feature(
                user_id="user123",
-               feature_name="analytics-maxDashboards",
-               consumption={"maxDashboards": 1}
+               feature_name="socialbeats-maxDashboards"
            )
            if result["eval"]:
                print("✓ Usuario puede crear dashboard")
+               # Step 2: Create dashboard in your DB (your code here)
+               # ...
+               # Step 3: Update usage in SPACE
+               await client.update_usage_levels(
+                   user_id="user123",
+                   usage_levels={"socialbeats": {"maxDashboards": 1}}
+               )
            else:
                print("✗ Usuario ha alcanzado el límite")
 
