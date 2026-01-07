@@ -1,3 +1,23 @@
+# Release v3.0.0
+
+## Features
+No new features.
+## Tests
+No test changes.
+## Documentation
+No documentation changes.
+## Fixes
+- fix: SPACE endpoints
+
+## Continuous integration (CI)
+No CI changes.
+## Other changes
+- Merge pull request #67 from SocialBeats/develop
+
+## Full commit history
+
+For full commit history, see [here](https://github.com/SocialBeats/analytics-and-dashboards/compare/v2.0.1...v3.0.0).
+
 # Release v2.0.1
 
 ## Features
