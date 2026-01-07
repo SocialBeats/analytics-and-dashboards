@@ -1,3 +1,23 @@
+# Release v2.0.0
+
+## Features
+No new features.
+## Tests
+No test changes.
+## Documentation
+No documentation changes.
+## Fixes
+- fix: Logic for feature handleling by SPACE
+
+## Continuous integration (CI)
+No CI changes.
+## Other changes
+- Merge pull request #65 from SocialBeats/develop
+
+## Full commit history
+
+For full commit history, see [here](https://github.com/SocialBeats/analytics-and-dashboards/compare/v1.1.0...v2.0.0).
+
 # Release v1.1.0
 
 ## Features
