@@ -142,7 +142,7 @@ class DashboardService:
             async with space_client:
                 evaluation = await space_client.evaluate_feature(
                     user_id=owner_id,
-                    feature_name="socialbeats-maxDashboards",
+                    feature_name="socialbeats-dashboards",
                 )
 
                 if not evaluation.get("eval", False):
