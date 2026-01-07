@@ -133,6 +133,18 @@ class SpaceClient:
             )
             response.raise_for_status()
 
+            # Verificar que la respuesta no esté vacía
+            if not response.content or len(response.content.strip()) == 0:
+                logger.error(
+                    f"SPACE API returned empty response for feature '{feature_name}' "
+                    f"and user '{user_id}'. Status: {response.status_code}"
+                )
+                raise ValueError(
+                    f"SPACE API returned empty response (HTTP {response.status_code}). "
+                    f"Please verify that the feature '{feature_name}' exists in SPACE "
+                    f"and user '{user_id}' has a valid contract."
+                )
+
             result = response.json()
             logger.debug(f"Feature evaluation result: {result}")
 
@@ -140,6 +152,9 @@ class SpaceClient:
 
         except httpx.HTTPStatusError as e:
             logger.error(f"SPACE API error: {e.response.status_code} - {e.response.text}")
+            raise
+        except ValueError as e:
+            logger.error(f"Invalid response from SPACE: {str(e)}")
             raise
         except Exception as e:
             logger.error(f"Error evaluating feature in SPACE: {str(e)}")
